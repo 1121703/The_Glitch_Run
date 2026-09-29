@@ -6,7 +6,7 @@
 🔗 **線上展示網址 (Live Demo)**: [點此立即造訪《崩壞狂奔》遊戲頁面](https://1121703.github.io/Web_Final_Project/) *(請在開啟 GitHub Pages 後替換)*  
 🎬 **報告展示影片 (Demo Video)**: [觀看完整試玩展示 (web_final_report.mp4)](./報告資料庫/web_final_report.mp4)  
 📊 **專案成果報告 (Final Report)**: [線上期末專題報告頁面](./報告資料庫/web_final_report.html)  
-📑 **遊戲企劃書 (Game Design Document)**: [查看詳細遊戲企劃.docx](./報告資料庫/word/遊戲企劃.docx)
+📑 **遊戲企劃書 (Game Design Document)**: [點此線上檢視遊戲企劃.pdf](./報告資料庫/word/遊戲企劃.pdf)
 
 ---
 
