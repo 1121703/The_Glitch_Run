@@ -1,0 +1,677 @@
+/* --- 1. 風格與變數設定 (Theme Variables) --- */
+:root {
+    /* 預設：Data (駭客綠) */
+    --bg-color: #050505;
+    --card-bg: #111;
+    --accent-color: #00ff9d; /* 主要霓虹色 */
+    --text-color: #e0e0e0;
+    --error-color: #ff3366;
+    --hud-bg: rgba(0, 255, 157, 0.05);
+    --grid-gap: 10px;
+    --scanline-opacity: 0.1;
+}
+
+/* 明亮風 (Cyber Corporate) */
+[data-theme="light"] {
+    --bg-color: #f0f2f5;
+    --card-bg: #ffffff;
+    --accent-color: #007bff; /* 科技藍 */
+    --text-color: #333333;
+    --error-color: #dc3545;
+    --hud-bg: rgba(0, 123, 255, 0.1);
+    --scanline-opacity: 0.05; /* 掃描線變淡 */
+}
+
+/* 黑暗風 (Warning / Sith) */
+[data-theme="dark"] {
+    --bg-color: #1a0505;
+    --card-bg: #2d1b1b;
+    --accent-color: #ffcc00; /* 警告黃/橘 */
+    --text-color: #ffcccc;
+    --error-color: #ff0000;
+    --hud-bg: rgba(255, 204, 0, 0.05);
+    --scanline-opacity: 0.15;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0; padding: 0;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: 'Courier New', Courier, monospace;
+    width: 100vw; height: 100vh;
+    overflow: hidden;
+    transition: background-color 0.5s, color 0.5s; /* 風格切換動畫 */
+}
+
+/* 掃描線特效 */
+.scanline {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, #000 50%, #000);
+    background-size: 100% 4px; 
+    opacity: var(--scanline-opacity); /* 使用變數 */
+    pointer-events: none; z-index: 50;
+}
+
+/* --- 主容器 --- */
+.game-wrapper {
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    padding: 10px;
+}
+
+/* --- HUD --- */
+.hud {
+    display: flex; justify-content: space-between; align-items: center; /* 修正對齊 */
+    padding: 10px 20px;
+    background: var(--hud-bg);
+    border: 1px solid var(--accent-color);
+    border-radius: 5px;
+    margin-bottom: 10px;
+    flex-shrink: 0;
+    transition: 0.5s;
+}
+
+.info-group {
+    display: flex; gap: 20px; /* 讓左側資訊靠在一起 */
+}
+
+.info-box { text-align: center; }
+.label { display: block; font-size: 0.7rem; opacity: 0.7; letter-spacing: 1px; }
+.value { font-size: 1.2rem; font-weight: bold; color: var(--accent-color); text-shadow: 0 0 5px var(--accent-color); }
+.blink { animation: blink 0.8s infinite; color: var(--error-color); }
+@keyframes blink { 50% { opacity: 0.3; } }
+
+/* 設定按鈕樣式 (移植自 Level 1) */
+.btn-style {
+    background: transparent;
+    border: 1px solid var(--accent-color);
+    color: var(--accent-color); /* 跟隨主色 */
+    padding: 5px 15px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: 0.3s;
+    font-weight: bold;
+    font-family: inherit;
+    font-size: 0.9rem;
+    display: flex; align-items: center; gap: 5px;
+}
+.btn-style:hover {
+    background: var(--accent-color);
+    color: var(--bg-color); /* 反白 */
+    box-shadow: 0 0 10px var(--accent-color);
+}
+
+/* --- 網格容器 (5x4) --- */
+.grid-container {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+    gap: var(--grid-gap);
+    width: 100%; flex: 1; perspective: 1000px;
+}
+
+/* --- 卡牌 --- */
+.card {
+    width: 100%; height: 100%; position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    cursor: pointer;
+}
+.card.flipped { transform: rotateY(180deg); }
+.card.matched {
+    transform: rotateY(180deg) scale(0.9);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.5s ease-out, transform 0.5s;
+}
+
+.card-face {
+    position: absolute; width: 100%; height: 100%;
+    backface-visibility: hidden;
+    display: flex; justify-content: center; align-items: center;
+    border-radius: 4px; border: 1px solid #333;
+    background: var(--card-bg);
+    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    transition: background-color 0.5s;
+}
+
+/* 正面 */
+.card-front { border: 1px solid rgba(128, 128, 128, 0.3); }
+.card-front:hover { border-color: var(--accent-color); box-shadow: 0 0 15px var(--accent-color); }
+
+.loader {
+    width: 40px; height: 40px;
+    border: 4px solid #333;
+    border-top: 4px solid var(--accent-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+@keyframes spin { 100% { transform: rotate(360deg); } }
+
+/* 背面 */
+.card-back {
+    transform: rotateY(180deg);
+    background: #222; /* 稍微亮一點的黑，避免跟圖案混淆 */
+    font-size: min(12vw, 10vh);
+    border: 1px solid var(--accent-color);
+    color: #fff; /* 圖案顏色 */
+    user-select: none;
+}
+/* 在明亮模式下，卡背圖案顏色微調 */
+[data-theme="light"] .card-back { background: #fff; color: #333; border: 1px solid #ccc; }
+
+
+/* --- Modal (通用彈窗與設定選單) --- */
+.modal {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.9); /* 預設深色遮罩 */
+    display: flex; justify-content: center; align-items: center; z-index: 100;
+    backdrop-filter: blur(5px);
+}
+[data-theme="light"] .modal { background: rgba(255,255,255,0.8); }
+
+.hidden { display: none !important; }
+
+.modal-content {
+    background: var(--bg-color);
+    border: 2px solid var(--accent-color); padding: 30px;
+    max-width: 600px; width: 90%; text-align: center;
+    box-shadow: 0 0 30px rgba(0,0,0,0.5);
+    transition: 0.5s;
+}
+
+.glitch-title { font-size: 2.5rem; margin-bottom: 20px; color: var(--accent-color); letter-spacing: 5px; }
+.story-text { text-align: left; margin-bottom: 20px; line-height: 1.6; color: var(--text-color); }
+.char-name { color: #ff00ff; font-weight: bold; }
+
+.mission-box { 
+    border: 1px dashed #666; padding: 10px; margin: 20px 0; 
+    background: rgba(128,128,128,0.1); 
+    color: var(--text-color);
+}
+
+.action-btn {
+    background: var(--accent-color); color: var(--bg-color); border: none; padding: 15px 40px;
+    font-size: 1.2rem; font-weight: bold; cursor: pointer; text-transform: uppercase;
+    font-family: inherit;
+}
+.action-btn:hover { filter: brightness(1.2); box-shadow: 0 0 20px var(--accent-color); }
+
+/* 設定選單專用按鈕 */
+.settings-btn-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+
+/* 1. 作弊按鈕：偽裝成故障像素 */
+.cheat-pixel {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    width: 10px;
+    height: 10px;
+    background-color: var(--accent-color);
+    opacity: 0.2;
+    z-index: 2000; /* ★ 確保最上層 */
+    cursor: help;
+    animation: pixel-flicker 3s infinite;
+}
+
+.cheat-pixel:hover {
+    opacity: 1;
+    box-shadow: 0 0 10px var(--accent-color);
+    transform: scale(1.5);
+}
+
+@keyframes pixel-flicker {
+    0%, 100% { opacity: 0.2; }
+    5% { opacity: 0; }
+    10% { opacity: 0.2; }
+    50% { opacity: 0.1; }
+    55% { opacity: 0.3; background-color: var(--error-color); } /* 偶爾變紅 */
+    60% { opacity: 0.2; background-color: var(--accent-color); }
+}
+
+/* 2. 隱藏劇情視窗 */
+#story-ui {
+    display: none; 
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.95);
+    backdrop-filter: blur(10px);
+    z-index: 9999; /* ★ 修改：設為最高，確保顯示在最上層 */
+    justify-content: center; align-items: center;
+}
+
+.story-box-wide {
+    max-width: 700px; width: 90%;
+    border: 2px solid var(--accent-color);
+    background: #000;
+    display: flex;
+    flex-direction: row;
+    box-shadow: 0 0 50px rgba(0, 255, 157, 0.2);
+    animation: modalPop 0.3s ease-out;
+}
+
+@keyframes modalPop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+.story-visual {
+    width: 35%;
+    background: #111;
+    border-right: 1px solid var(--accent-color);
+    display: flex; justify-content: center; align-items: center;
+    overflow: hidden; position: relative;
+}
+
+.story-avatar {
+    font-size: 80px;
+    animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+
+.story-content {
+    width: 65%; padding: 30px;
+    display: flex; flex-direction: column; justify-content: center;
+}
+
+.story-header {
+    color: var(--error-color);
+    font-size: 1.2rem; font-weight: bold;
+    border-bottom: 1px dashed var(--error-color);
+    padding-bottom: 10px; margin-bottom: 15px;
+    letter-spacing: 2px;
+}
+
+.story-body {
+    color: var(--text-color); line-height: 1.6; font-size: 1rem;
+    min-height: 100px;
+}
+
+.story-hint {
+    margin-top: 20px; color: #666; font-size: 0.8rem; text-align: right;
+    animation: blink 1s infinite;
+}
+
+/* RWD */
+@media (max-width: 600px) {
+    .story-box-wide { flex-direction: column; }
+    .story-visual { width: 100%; height: 150px; border-right: none; border-bottom: 1px solid var(--accent-color); }
+    .story-content { width: 100%; }
+}
+
+/* --- ★ 修改：命運輪盤樣式 (無指針版) --- */
+.roulette-content {
+    background: #111;
+    border: 2px solid var(--accent-color);
+    width: 400px;
+    max-width: 90%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+}
+
+/* 輪盤容器 */
+.roulette-container {
+    position: relative;
+    width: 250px;
+    height: 250px;
+    margin: 20px 0;
+    border-radius: 50%;
+    box-shadow: 0 0 30px rgba(0,0,0,0.5);
+    border: 8px solid #222;
+}
+
+/* 輪盤本體 (雙色圓餅圖) */
+.wheel {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    /* 6等分，交替顏色 */
+    background: conic-gradient(
+        var(--accent-color) 0deg 60deg,
+        #333 60deg 120deg,
+        var(--accent-color) 120deg 180deg,
+        #333 180deg 240deg,
+        var(--accent-color) 240deg 300deg,
+        #333 300deg 360deg
+    );
+    position: relative;
+    transform: rotate(30deg); 
+}
+
+/* 輪盤中心裝飾 */
+.wheel::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 50px; height: 50px;
+    background: #000;
+    border: 2px solid var(--accent-color);
+    border-radius: 50%;
+    z-index: 5;
+    box-shadow: 0 0 10px rgba(0,0,0,0.8);
+}
+
+/* 輪盤上的文字標籤 */
+.wheel-label {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 100%; height: 100%;
+    text-align: center;
+    /* 利用 CSS 變數計算旋轉角度 */
+    transform: translate(-50%, -50%) rotate(calc(var(--i) * 60deg + 30deg)); 
+    pointer-events: none;
+}
+
+.wheel-label span {
+    display: block;
+    margin-top: 10px; /* 文字靠近外圈 */
+    font-size: 1rem;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 0 0 3px #000;
+    transform: rotate(0deg); 
+}
+
+/* --- 小球動畫系統 --- */
+.ball-container {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 6;
+}
+
+.ball {
+    position: absolute;
+    top: 5px; /* 這裡決定球離邊緣的距離 */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 14px;
+    height: 14px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 
+        0 0 5px #fff, 
+        inset -3px -3px 3px rgba(0,0,0,0.5),
+        0 0 10px var(--accent-color);
+}
+
+.roulette-result-text {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--accent-color);
+    margin-top: 10px;
+    min-height: 30px;
+    font-family: 'Courier New', monospace;
+}
+
+/* 主題適配 */
+[data-theme="light"] .wheel {
+    background: conic-gradient(
+        var(--accent-color) 0deg 60deg,
+        #ddd 60deg 120deg,
+        var(--accent-color) 120deg 180deg,
+        #ddd 180deg 240deg,
+        var(--accent-color) 240deg 300deg,
+        #ddd 300deg 360deg
+    );
+}
+[data-theme="light"] .wheel-label span { color: #000; text-shadow: none; }
+
+/* =========================================
+   ★ Level 3 -> 4 過場動畫專用樣式 (加強版)
+   ========================================= */
+
+/* 1. 崩潰畫面重新佈局 */
+.crash-container {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    display: flex;
+    flex-direction: row; 
+    align-items: center;
+    justify-content: flex-start;
+    padding: 5%;
+    background-color: #000; /* 配合你的背景圖，用全黑 */
+    color: var(--error-color); /* 使用紅字 */
+    font-family: 'Segoe UI', sans-serif;
+    z-index: 100; /* 確保在最上層 */
+    overflow: hidden;
+}
+
+.crash-content-left {
+    flex: 1; 
+    max-width: 60%; 
+}
+
+.crash-face {
+    font-size: 12rem; 
+    margin-bottom: 20px;
+    line-height: 1;
+}
+
+.crash-text {
+    font-size: 1.8rem;
+    line-height: 1.5;
+    white-space: pre-wrap; 
+}
+
+/* 2. 對話框樣式調整 */
+.console-wrapper.transition-mode {
+    position: absolute;
+    right: 5%; 
+    bottom: 20%; 
+    width: 35%; 
+    max-width: 500px;
+    background: rgba(0, 0, 0, 0.9); 
+    border: none; 
+    border-left: 3px solid var(--error-color); 
+    padding: 20px;
+    border-radius: 5px;
+    box-shadow: none; 
+}
+
+.console-line {
+    margin-bottom: 15px;
+    opacity: 0;
+    animation: fadeInUp 0.5s forwards;
+    font-size: 1.1rem;
+}
+
+/* 3. 玻璃破碎特效 */
+@keyframes shatter-shake {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    20% { transform: translate(-10px, 5px) rotate(-1deg); }
+    40% { transform: translate(10px, -5px) rotate(1deg); }
+    60% { transform: translate(-10px, 0px) rotate(0deg); filter: brightness(2); } 
+    80% { transform: translate(10px, 5px) rotate(-1deg); opacity: 1; }
+    100% { transform: scale(1.5) rotate(5deg); opacity: 0; filter: brightness(5); } 
+}
+
+.crash-container.shattering {
+    animation: shatter-shake 0.8s cubic-bezier(0.36, 0.07, 0.19, 0.97) forwards;
+    pointer-events: none; 
+}
+
+/* 4. 桌面場景層 */
+#desktop-layer {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background-color: #000; 
+    z-index: 50; 
+    opacity: 0;
+    transition: opacity 1s;
+    overflow: hidden;
+}
+
+#desktop-layer.visible {
+    opacity: 1;
+}
+
+/* 5. 發光圖示 */
+.desktop-icons-container {
+    position: absolute;
+    top: 30px;
+    left: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+
+.desktop-icon {
+    width: 60px;
+    height: 60px;
+    font-size: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    text-shadow: 0 0 10px #00ffff;
+    cursor: pointer;
+    filter: drop-shadow(0 0 15px #00ffff);
+    animation: icon-pulse 2s infinite alternate;
+}
+
+/* --- 修正：桌面圖示內的圖片樣式 --- */
+.desktop-icon img {
+    width: 45px;   
+    height: 52px;
+}
+
+/* --- 修正：垃圾桶特定樣式 (針對圖片做發光) --- */
+.icon-trash {
+    filter: drop-shadow(0 0 5px #ff3333); 
+}
+
+/* 滑鼠移過去時光芒變強 */
+.icon-trash:hover {
+    filter: drop-shadow(0 0 15px #ff0000); 
+    transform: scale(1.1); /* 微微放大 */
+}
+
+.icon-label {
+    font-size: 12px;
+    margin-top: 5px;
+    text-shadow: none;
+    filter: none;
+    opacity: 0.8;
+    text-align: center;
+}
+
+@keyframes icon-pulse {
+    from { filter: drop-shadow(0 0 10px currentColor); transform: scale(1); }
+    to { filter: drop-shadow(0 0 25px currentColor); transform: scale(1.1); }
+}
+
+/* 6. 角色演出 */
+#patch-actor-desktop {
+    position: absolute;
+    bottom: 20%;
+    right: -100px; /* 初始在畫面外 */
+    font-size: 80px;
+    filter: drop-shadow(0 0 10px var(--accent-color));
+    transition: right 1s ease-out, transform 0.3s;
+    opacity: 0;
+}
+
+#patch-actor-desktop.fade-in {
+    right: 20%;
+    opacity: 1;
+}
+
+#patch-actor-desktop.jump {
+    animation: patch-jump-anim 0.5s ease-out;
+}
+@keyframes patch-jump-anim {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50% { transform: translateY(-100px) scale(1.1); } 
+}
+
+#patch-actor-desktop.run-left {
+    right: 120%; /* 跑到左側畫面外 */
+    transition: right 2s cubic-bezier(0.25, 0.46, 0.45, 0.94); 
+    transform: scaleX(-1); /* 面向左邊跑 */
+}
+
+/* 寫實大手 */
+#hand-actor {
+    position: absolute;
+    top: -300px; /* 初始在畫面外 */
+    right: 10%;
+    width: 250px; 
+    height: auto;
+    z-index: 60;
+    opacity: 0.9;
+    filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5));
+    transition: top 1s ease-out, transform 1.5s;
+}
+
+#hand-actor.appear {
+    top: 10%; 
+}
+
+#hand-actor.grab-fail {
+    top: 50%; /* 往下抓 */
+    transform: translateX(-100px) scale(1.1) rotate(-10deg); 
+    transition: top 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.realistic-hand-img {
+    width: 100%;
+    transform: rotate(180deg); 
+}
+
+.realistic-hand-img {
+    width: 100%;
+    /* ★ 修改：原本是 180deg，如果現在是顛倒的，改成 0deg 試試看 */
+    transform: rotate(0deg); 
+}
+
+/* --- 修正：補上遺失的動畫關鍵影格 --- */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* --- 修正：確保對話框層級高於桌面背景和崩潰畫面 --- */
+.console-wrapper.transition-mode {
+    position: absolute;
+    /* 設定：置中並靠上 */
+    left: 50%;
+    top: 30%; /* 設在畫面高度 30% 的位置，避開底部 */
+    transform: translate(-50%, -50%); /* 完美的水平垂直置中校正 */
+    width: 80%; /* 寬度變寬，因為單行文字可能比較長 */
+    max-width: 800px;
+    /* 外觀調整：單句顯示適合置中，拿掉左邊的紅線，改用底部紅線或純文字 */
+    background: transparent; /* 背景透明，讓文字直接浮在黑底上更有感覺 */
+    border: none; 
+    text-align: center; /* 文字置中 */
+    font-size: 0.8rem; 
+    text-shadow: 0 0 10px #000; /* 增加文字陰影以防背景干擾 */
+    
+    /* ★ 新增：確保在圖層最上方，不然會被 crash-screen 蓋住 */
+    z-index: 200; 
+}
+
+/* ★ 讓文字出現時的動畫更平滑 */
+.console-line {
+    margin-bottom: 0; /* 單句不需要 margin */
+    opacity: 0;
+    animation: textFadeIn 0.5s forwards;
+    font-size: 1.0rem;
+    line-height: 1.5;
+}
+
+@keyframes textFadeIn {
+    from { opacity: 0; transform: translateY(10px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}

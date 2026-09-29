@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>崩壞狂奔 - The Glitch Run</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body data-theme="data">
+
+    <div id="loading-intro">
+        <div class="intro-glitch-text" data-text="SYSTEM_INIT">SYSTEM_INIT...</div>
+    </div>
+
+    <div id="main-ui-container" style="opacity: 0; transition: opacity 2s ease-in;">
+        <div class="top-right-panel">
+            <button class="icon-btn" onclick="openModal('notice-modal')">⚠️ 公告</button>
+        </div>
+
+        <div class="title-container">
+            <div class="glitch-title" data-text="崩壞狂奔">崩壞狂奔</div>
+            <div class="subtitle">THE GLITCH RUN v0.1</div>
+        </div>
+
+        <div class="menu-container">
+            <button class="main-btn" onclick="startStoryMode()">開始遊戲</button>
+            <button class="main-btn" onclick="openModal('settings-modal')">設 定</button>
+        </div>
+    </div>
+    
+    <div id="notice-modal" class="modal-overlay">
+        <div class="modal-box">
+            <button class="close-btn" onclick="closeModal('notice-modal')">×</button>
+            <div class="modal-title">系統公告</div>
+            <ul class="notice-list">
+                <li>2025/12/06: 專案啟動！</li>
+                <li>新增：帕奇 (Patch) 角色模組</li>
+                <li>警告：偵測到大量 Bug，請小心遊玩</li>
+                <li>提示：注意周遭!</li>
+            </ul>
+        </div>
+    </div>
+
+    <div id="settings-modal" class="modal-overlay">
+        <div class="modal-box">
+            <button class="close-btn" onclick="closeModal('settings-modal')">×</button>
+            <div class="modal-title">顯示設定</div>
+            <p>選擇你的渲染引擎風格：</p>
+            <button class="style-option" onclick="setTheme('data')">📟 數據風 (Data)</button>
+            <button class="style-option" onclick="setTheme('light')">✨ 明亮風 (Light)</button>
+            <button class="style-option" onclick="setTheme('dark')">💀 黑暗風 (Dark)</button>
+        </div>
+    </div>
+
+    <div id="intro-overlay">
+        <div class="story-container">
+            <div id="patch-avatar" class="patch-avatar" style="display:none;">👾</div>
+            
+            <div class="story-image-box">
+                <img id="story-img" class="story-img" src="" alt="Story Scene" style="display:none;">
+                <video id="story-video" class="story-img" style="display:none;" playsinline></video>
+            </div>
+
+            <div class="story-text-box">
+                <span id="typewriter-text"></span><span class="cursor"></span>
+            </div>
+
+            <div class="story-controls">
+                <button id="skip-btn" class="story-btn" style="opacity: 0.5; font-size: 12px;" onclick="goToLevel()">[ 跳過 ]</button>
+                <button id="next-btn" class="story-btn" onclick="nextSlide()">繼續 >></button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // --- 彈出視窗邏輯 ---
+        function openModal(modalId) {
+            document.getElementById(modalId).style.display = 'flex';
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // 風格切換
+        function setTheme(themeName) {
+            document.body.setAttribute('data-theme', themeName);
+            localStorage.setItem('glitchGameTheme', themeName);
+        }
+
+        // *** 進入動畫邏輯 ***
+        window.onload = function() {
+            const savedTheme = localStorage.getItem('glitchGameTheme');
+            if (savedTheme) {
+                setTheme(savedTheme);
+            }
+            
+            // 3秒後開始執行「數據崩解」動畫
+            setTimeout(showMainMenu, 3000); 
+        }
+
+        function showMainMenu() {
+            const introLayer = document.getElementById('loading-intro');
+            const mainUI = document.getElementById('main-ui-container');
+
+            // 1. 加入崩解動畫 Class
+            introLayer.classList.add('data-dissolve-out');
+
+            // 2. 同時讓主介面慢慢浮現
+            setTimeout(() => {
+                mainUI.style.opacity = '1';
+            }, 500);
+
+            // 3. 等動畫跑完後 (1.2秒)，徹底移除動畫層
+            setTimeout(() => {
+                introLayer.style.display = 'none';
+            }, 1200); 
+        }
+
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal-overlay')) {
+                event.target.style.display = "none";
+            }
+        }
+        
+        // --- 劇情系統邏輯 (Story System) ---
+
+        // 劇情腳本設定
+        const storySlides = [
+            {
+                type: 'image',
+                file: "index_1_2.png", 
+                text: "系統警告：代碼完整性嚴重受損。\n這座完美的虛擬城市正在崩塌，數據洪流開始失控...",
+                isPatch: false
+            },
+            {
+                type: 'image',
+                file: "index_2_2.jpg", 
+                text: "目標區域：Sector 01 <貪婪商業區>。\n這裡是消費主義的數位監獄，所有靈魂都被標上了價格，甚至連『希望』都需要付費解鎖。",
+                isPatch: false
+            },
+            {
+                type: 'video',
+                file: "index_3_2.mp4", 
+                text: "帕奇 (Patch)：\n「嘿！聽得到嗎？防火牆出現裂縫了，這是我能找到的唯一後門。」",
+                isPatch: true
+            },
+            {
+                type: 'video',
+                file: "index_4_2.mp4", 
+                text: "帕奇 (Patch)：\n「如果我們現在不同步訊號，就會永遠被困在這個迴圈裡。\n\n所以... 同步你的代碼，準備好與我一起搞破壞了嗎？」",
+                isPatch: true,
+                buttonText: "INIT_SYNC(); // 駭入關卡"
+            }
+        ];
+
+        let currentSlideIndex = 0;
+        let isTyping = false;
+        let typeInterval;
+
+        // 啟動劇情模式
+        function startStoryMode() {
+            const currentTheme = document.body.getAttribute('data-theme');
+            localStorage.setItem('glitchGameTheme', currentTheme);
+
+            document.getElementById('intro-overlay').style.display = 'flex';
+            currentSlideIndex = 0;
+            showSlide(currentSlideIndex);
+        }
+
+        // 顯示單張劇情
+        function showSlide(index) {
+            const slide = storySlides[index];
+            const imgEl = document.getElementById('story-img');
+            const videoEl = document.getElementById('story-video');
+            const textEl = document.getElementById('typewriter-text');
+            const patchAvatar = document.getElementById('patch-avatar');
+            const nextBtn = document.getElementById('next-btn');
+
+            // 暫停上一段影片並重置時間
+            videoEl.pause();
+            videoEl.currentTime = 0; 
+
+            // 判斷是圖片還是影片
+            if (slide.type === 'video') {
+                imgEl.style.display = 'none';
+                videoEl.style.display = 'block';
+                videoEl.src = slide.file;
+                
+                const playPromise = videoEl.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        console.log("Auto-play prevented:", error);
+                    });
+                }
+            } else {
+                videoEl.style.display = 'none';
+                imgEl.style.display = 'block';
+                imgEl.src = slide.file;
+            }
+
+            // 設定是否顯示帕奇頭像
+            patchAvatar.style.display = slide.isPatch ? 'flex' : 'none';
+
+            // 設定按鈕文字
+            if (slide.buttonText) {
+                nextBtn.innerText = slide.buttonText;
+                nextBtn.style.borderColor = "var(--accent-color)";
+                nextBtn.style.color = "var(--accent-color)";
+            } else {
+                nextBtn.innerText = "繼續 >>";
+                nextBtn.style.borderColor = "var(--btn-border)";
+                nextBtn.style.color = "var(--text-color)";
+            }
+
+            // 打字機效果
+            textEl.innerHTML = "";
+            let charIndex = 0;
+            isTyping = true;
+            nextBtn.disabled = true;
+
+            clearInterval(typeInterval);
+            typeInterval = setInterval(() => {
+                if (charIndex < slide.text.length) {
+                    const char = slide.text.charAt(charIndex);
+                    if (char === "\n") {
+                        textEl.innerHTML += "<br>";
+                    } else {
+                        textEl.innerHTML += char;
+                    }
+                    charIndex++;
+                } else {
+                    clearInterval(typeInterval);
+                    isTyping = false;
+                    nextBtn.disabled = false;
+                }
+            }, 30);
+        }
+
+        // 下一頁邏輯
+        function nextSlide() {
+            if (isTyping) {
+                clearInterval(typeInterval);
+                const slide = storySlides[currentSlideIndex];
+                document.getElementById('typewriter-text').innerHTML = slide.text.replace(/\n/g, "<br>");
+                isTyping = false;
+                document.getElementById('next-btn').disabled = false;
+                return;
+            }
+
+            currentSlideIndex++;
+            if (currentSlideIndex < storySlides.length) {
+                showSlide(currentSlideIndex);
+            } else {
+                const videoEl = document.getElementById('story-video');
+                videoEl.pause();
+                goToLevel();
+            }
+        }
+
+        // 真正進入關卡
+        function goToLevel() {
+            document.body.style.opacity = "0"; 
+            setTimeout(() => {
+                window.location.href = "level1.html";
+            }, 500);
+        }
+
+    </script>
+</body>
+</html>

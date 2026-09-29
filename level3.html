@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>第三關 - 無限的 Load 迴圈</title>
+    <link rel="stylesheet" href="level3.css">
+</head>
+<body data-theme="data">
+    <div class="glitch-bg"></div>
+    <div class="scanline"></div>
+
+    <div class="cheat-pixel" onclick="triggerCheat()" title="Error 0xGC"></div>
+
+    <div class="game-wrapper">
+        <div class="hud">
+            <div class="info-group">
+                <div class="info-box">
+                    <span class="label">STATUS</span>
+                    <span class="value blink">GLITCHED</span>
+                </div>
+                <div class="info-box">
+                    <span class="label">TIMER</span>
+                    <span class="value" id="timer">--:--</span>
+                </div>
+                <div class="info-box">
+                    <span class="label">PROGRESS</span>
+                    <span class="value"><span id="match-count">0</span>/10</span>
+                </div>
+            </div>
+            <button class="btn-style" onclick="toggleSettings()">⚙️ 設定</button>
+        </div>
+
+        <div class="grid-container" id="game-grid">
+            </div>
+    </div>
+
+    <div id="roulette-modal" class="modal" style="z-index: 200;">
+        <div class="modal-content roulette-content">
+            <h2 class="glitch-title" style="font-size: 1.5rem;">LUCK SEQUENCE</h2>
+            <p style="margin-bottom: 20px; color: #888;">請轉動輪盤決定您的除錯時間...</p>
+            
+            <div class="roulette-container">
+                <div class="wheel" id="wheel">
+                    <div class="wheel-label" style="--i:0;"><span>1:00</span></div>
+                    <div class="wheel-label" style="--i:1;"><span>1:05</span></div>
+                    <div class="wheel-label" style="--i:2;"><span>1:10</span></div>
+                    <div class="wheel-label" style="--i:3;"><span>1:15</span></div>
+                    <div class="wheel-label" style="--i:4;"><span>1:20</span></div>
+                    <div class="wheel-label" style="--i:5;"><span>1:25</span></div>
+                </div>
+                <div class="ball-container" id="ball-container">
+                    <div class="ball"></div>
+                </div>
+            </div>
+
+            <div id="roulette-result" class="roulette-result-text">???</div>
+            <button id="spin-btn" class="action-btn" onclick="spinWheel()">SPIN</button>
+        </div>
+    </div>
+
+    <div id="intro-modal" class="modal hidden">
+        <div class="modal-content">
+            <h1 class="glitch-title">LEVEL 3</h1>
+            <p class="story-text">
+                <span class="char-name">帕奇：</span>「這些...都是被丟棄的數據？」<br>
+                眼前堆滿了載入失敗的地圖碎片，擋住了去路。造物主的防火牆將廢棄檔案堆砌成了一道牆。
+            </p>
+            <div class="mission-box">
+                <p><strong>[ SYSTEM ALERT ]</strong></p>
+                <p>目標：解除 5x4 廢棄數據矩陣</p>
+                <p>限制：<span id="intro-time-limit" style="color: var(--accent-color); font-size: 1.2em;">3 分鐘</span></p>
+            </div>
+            <button id="start-btn" class="action-btn">開始除錯</button>
+        </div>
+    </div>
+
+    <div id="result-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2 id="result-title" class="glitch-title"></h2>
+            <p id="result-message" class="story-text" style="text-align: center;"></p>
+            <button id="next-action-btn" class="action-btn">下一步</button>
+        </div>
+    </div>
+
+    <div id="settings-ui" class="modal hidden" onclick="if(event.target === this) toggleSettings()">
+        <div class="modal-content" style="max-width: 400px;">
+            <h3 style="color: var(--accent-color); margin-top: 0;">顯示風格設定</h3>
+            <div class="settings-btn-group">
+                <button class="btn-style" style="justify-content: center;" onclick="setTheme('data')">📟 數據風</button>
+                <button class="btn-style" style="justify-content: center;" onclick="setTheme('light')">✨ 明亮風</button>
+                <button class="btn-style" style="justify-content: center;" onclick="setTheme('dark')">💀 黑暗風</button>
+            </div>
+            <button class="btn-style" style="border-color:var(--error-color); color:var(--error-color); width: 100%; justify-content: center; margin-top:20px;" onclick="toggleSettings()">關閉</button>
+        </div>
+    </div>
+
+    <div id="story-ui" onclick="closeStoryAndWin()">
+        <div class="story-box-wide">
+            <div class="story-visual">
+                <div class="story-avatar">👾</div>
+                <div class="scanline" style="height: 2px; opacity: 0.5;"></div>
+            </div>
+            <div class="story-content">
+                <div class="story-header">⚠ SYSTEM OVERRIDE ⚠</div>
+                <div class="story-body" id="story-text-content"></div>
+                <p class="story-hint">[ 點擊任意處執行指令 ]</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="transition-layer" class="modal hidden" style="background: transparent; z-index: 9999; pointer-events: none;">
+        
+        <div id="crash-screen" class="crash-container" style="opacity: 0;">
+            <div class="crash-content-left">
+                <div class="crash-face">:(</div>
+                <div class="crash-text">
+                    Your PC ran into a problem and needs to restart.
+                    <br><br>
+                    <span style="color: #fff; opacity: 0.5; font-size: 0.8em;">STOP CODE: CRITICAL_PROCESS_DIED</span>
+                </div>
+            </div>
+            <div style="flex: 1;"></div> 
+        </div>
+
+        <div id="desktop-layer">
+            <div class="desktop-icons-container">
+                <div class="desktop-icon icon-trash">
+                    <img src="recycle.png" alt="Recycle Bin">
+                    <span class="icon-label">Recycle Bin</span>
+                </div>
+                <div class="desktop-icon">
+                    👾
+                    <span class="icon-label">Patch.exe</span>
+                </div>
+                <div class="desktop-icon">
+                    📁
+                    <span class="icon-label">My Data</span>
+                </div>
+                <div class="desktop-icon">
+                    🌐
+                    <span class="icon-label">Internet</span>
+                </div>
+            </div>
+
+            <div id="patch-actor-desktop">👾</div>
+            <div id="hand-actor">
+                <img src="hand.png" alt="Hand" class="realistic-hand-img" onerror="this.src='https://png.pngtree.com/png-clipart/20230427/original/pngtree-hand-top-view-png-image_9114137.png'">
+            </div>
+        </div>
+
+        <div id="dialogue-container" class="console-wrapper transition-mode hidden">
+            <div id="console-output"></div>
+        </div>
+    </div>
+
+<script>
+    // --- 遊戲變數 ---
+    let totalTime = 60; 
+    let currentTime = totalTime;
+    let timerInterval;
+    let isGameActive = false;
+    let isPaused = false;
+    let lockBoard = false;
+    
+    const cardIcons = [
+        '🗺️', '🗺️', '🌋', '🌋', '🏝️', '🏝️', '🏰', '🏰', 
+        '🌌', '🌌', '🚧', '🚧', '💾', '💾', '🚫', '🚫', 
+        '⚙️', '⚙️', '👾', '👾'
+    ];
+
+    let cards = [];
+    let matchedPairs = 0;
+    const totalPairs = 10;
+
+    // DOM 元素
+    const grid = document.getElementById('game-grid');
+    const timerDisplay = document.getElementById('timer');
+    const matchDisplay = document.getElementById('match-count');
+    const introModal = document.getElementById('intro-modal');
+    const resultModal = document.getElementById('result-modal');
+    const startBtn = document.getElementById('start-btn');
+    const nextActionBtn = document.getElementById('next-action-btn');
+    const storyUi = document.getElementById('story-ui');
+    const storyText = document.getElementById('story-text-content');
+    const settingsModal = document.getElementById('settings-ui');
+    
+    // 輪盤 DOM
+    const rouletteModal = document.getElementById('roulette-modal');
+    const wheel = document.getElementById('wheel');
+    const ballContainer = document.getElementById('ball-container');
+    const rouletteResult = document.getElementById('roulette-result');
+    const introTimeLimitText = document.getElementById('intro-time-limit');
+
+    // --- 初始化 ---
+    window.onload = function() {
+        const savedTheme = localStorage.getItem('glitchGameTheme');
+        if (savedTheme) document.body.setAttribute('data-theme', savedTheme);
+        
+        // 初始顯示輪盤
+        rouletteModal.style.display = 'flex';
+        introModal.classList.add('hidden'); 
+    };
+
+    // --- 輪盤邏輯 ---
+    const rouletteOptions = [
+        { label: "1:00", seconds: 60,  centerAngle: 30 },
+        { label: "1:05", seconds: 65,  centerAngle: 90 },
+        { label: "1:10", seconds: 70,  centerAngle: 150 },
+        { label: "1:15", seconds: 75,  centerAngle: 210 },
+        { label: "1:20", seconds: 80,  centerAngle: 270 },
+        { label: "1:25", seconds: 85,  centerAngle: 330 }
+    ];
+
+    let isSpinning = false;
+
+    function spinWheel() {
+        if (isSpinning) return;
+        isSpinning = true;
+        document.getElementById('spin-btn').disabled = true;
+        rouletteResult.innerText = "ROLLING...";
+
+        const randomIndex = Math.floor(Math.random() * rouletteOptions.length);
+        const selected = rouletteOptions[randomIndex];
+        
+        const wheelSpins = 4 + Math.floor(Math.random() * 3);
+        const wheelRandomStop = Math.floor(Math.random() * 360); 
+        const wheelFinalDeg = (wheelSpins * 360) + wheelRandomStop;
+
+        const extraBallSpins = 10; 
+        const targetBallPos = wheelFinalDeg + selected.centerAngle - (extraBallSpins * 360);
+        
+        wheel.style.transition = "transform 4s cubic-bezier(0.1, 0, 0.2, 1)";
+        wheel.style.transform = `rotate(${wheelFinalDeg}deg)`;
+
+        ballContainer.style.transition = "transform 4s cubic-bezier(0.2, 0, 0.1, 1)";
+        ballContainer.style.transform = `rotate(${targetBallPos}deg)`;
+
+        setTimeout(() => {
+            isSpinning = false;
+            rouletteResult.innerText = `TIME SET: ${selected.label}`;
+            rouletteResult.classList.add('blink'); 
+
+            totalTime = selected.seconds;
+            currentTime = totalTime;
+            introTimeLimitText.innerText = `${selected.label} (${selected.seconds}秒)`;
+
+            setTimeout(() => {
+                rouletteModal.style.display = 'none';
+                introModal.classList.remove('hidden');
+                introModal.style.display = 'flex';
+            }, 2000);
+        }, 4200); 
+    }
+
+    // --- 遊戲邏輯 ---
+    startBtn.addEventListener('click', () => {
+        introModal.style.display = 'none';
+        initGame();
+    });
+
+    function initGame() {
+        cards = shuffle([...cardIcons]);
+        grid.innerHTML = '';
+        matchedPairs = 0;
+        matchDisplay.innerText = 0;
+        lockBoard = false;
+        currentTime = totalTime; 
+        isPaused = false;
+        updateTimerDisplay();
+
+        cards.forEach((icon, index) => {
+            const card = document.createElement('div');
+            card.classList.add('card');
+            card.dataset.value = icon;
+            card.id = `card-${index}`;
+
+            const front = document.createElement('div');
+            front.classList.add('card-face', 'card-front');
+            front.innerHTML = '<div class="loader"></div>'; 
+
+            const back = document.createElement('div');
+            back.classList.add('card-face', 'card-back');
+            back.innerText = icon;
+
+            card.appendChild(front);
+            card.appendChild(back);
+            card.addEventListener('click', flipCard);
+            grid.appendChild(card);
+        });
+
+        isGameActive = true;
+        startTimer();
+    }
+
+    function shuffle(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+
+    function startTimer() {
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            if (!isGameActive || isPaused) return;
+            currentTime--;
+            updateTimerDisplay();
+            if (currentTime <= 0) endGame(false); 
+        }, 1000);
+    }
+
+    function updateTimerDisplay() {
+        if (currentTime < 0) currentTime = 0;
+        const m = Math.floor(currentTime / 60);
+        const s = currentTime % 60;
+        if (isPaused) {
+            timerDisplay.innerText = "PAUSED";
+            timerDisplay.style.color = "var(--error-color)";
+        } else {
+            timerDisplay.innerText = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            timerDisplay.style.color = "var(--accent-color)";
+        }
+    }
+
+    function flipCard() {
+        if (!isGameActive || isPaused || lockBoard) return;
+        if (this.classList.contains('matched') || this.classList.contains('flipped')) return;
+        
+        const currentFlipped = document.querySelectorAll('.card.flipped:not(.matched)');
+        if (currentFlipped.length >= 2) return;
+
+        this.classList.add('flipped');
+
+        if (currentFlipped.length === 1) {
+            checkForMatch(this, currentFlipped[0]);
+        }
+    }
+
+    function checkForMatch(card1, card2) {
+        lockBoard = true; 
+        if (card1.dataset.value === card2.dataset.value) {
+            setTimeout(() => {
+                card1.classList.add('matched');
+                card2.classList.add('matched');
+                matchedPairs++;
+                matchDisplay.innerText = matchedPairs;
+                lockBoard = false;
+                if (matchedPairs === totalPairs) setTimeout(() => endGame(true), 500);
+            }, 400);
+        } else {
+            setTimeout(() => {
+                card1.classList.remove('flipped');
+                card2.classList.remove('flipped');
+                lockBoard = false;
+            }, 400);
+        }
+    }
+
+    function endGame(victory) {
+        isGameActive = false;
+        clearInterval(timerInterval);
+        resultModal.classList.remove('hidden');
+        resultModal.style.display = 'flex';
+
+        const title = document.getElementById('result-title');
+        const msg = document.getElementById('result-message');
+        const btn = document.getElementById('next-action-btn');
+
+        if (victory) {
+            title.innerText = "LOADING COMPLETE";
+            title.style.color = "var(--accent-color)";
+            msg.innerText = "廢棄數據清除完畢，通道已開啟...";
+            btn.innerText = "突破邊界"; 
+            
+            btn.onclick = () => {
+                playTransition();
+            };
+        } else {
+            title.innerText = "CONNECTION LOST";
+            title.style.color = "var(--error-color)";
+            msg.innerText = "時間耗盡，數據同步失敗！";
+            btn.innerText = "重新連線 (Restart)";
+            btn.onclick = () => {
+                resultModal.style.display = 'none';
+                resultModal.classList.add('hidden');
+                initGame();
+            };
+        }
+    }
+
+    function toggleSettings() {
+        const isHidden = settingsModal.classList.contains('hidden');
+        if (isHidden) {
+            settingsModal.classList.remove('hidden');
+            settingsModal.style.display = 'flex';
+            if (isGameActive && matchedPairs < totalPairs && currentTime > 0) {
+                isPaused = true;
+                updateTimerDisplay();
+            }
+        } else {
+            settingsModal.classList.add('hidden');
+            settingsModal.style.display = 'none';
+            if (isPaused) {
+                isPaused = false;
+                updateTimerDisplay();
+            }
+        }
+    }
+
+    function setTheme(theme) {
+        document.body.setAttribute('data-theme', theme);
+        localStorage.setItem('glitchGameTheme', theme);
+    }
+
+    // --- ★★★ 修正點：作弊邏輯 ★★★ ---
+    let cheatTriggered = false;
+    function triggerCheat() {
+        if (cheatTriggered) return; 
+        
+        // 修正：如果遊戲還沒開始 (卡牌數為0)，強制初始化遊戲以便作弊
+        if (!isGameActive || cards.length === 0) {
+            document.getElementById('roulette-modal').style.display = 'none';
+            document.getElementById('intro-modal').style.display = 'none';
+            document.getElementById('intro-modal').classList.add('hidden');
+            initGame();
+        }
+        
+        cheatTriggered = true;
+        isPaused = true; // 暫停計時
+        updateTimerDisplay();
+        
+        // 顯示劇情
+        storyUi.style.display = 'flex';
+        storyUi.classList.remove('hidden');
+        
+        const text = `<span style="color:#ff00ff">帕奇：</span>「等等...這個亂碼看起來像是一個指令？」<br><br>
+                      <span style="color:var(--accent-color)">系統提示：</span> 發現隱藏的開發者後門。<br>
+                      指令：<b>GarbageCollection.exe --force</b><br><br>
+                      <span style="color:#ff00ff">帕奇：</span>「原來這些廢棄地圖是可以一鍵清除的？造物主真是太懶了...執行！」`;
+        storyText.innerHTML = text;
+    }
+
+    function closeStoryAndWin() {
+        storyUi.style.display = 'none';
+        isPaused = false; 
+        activateAutoClear();
+    }
+
+    function activateAutoClear() {
+        lockBoard = true;
+        document.body.style.animation = "shake 0.5s";
+        const allCards = document.querySelectorAll('.card');
+        
+        // 快速翻開所有卡牌
+        allCards.forEach((card, index) => {
+            if (card.classList.contains('matched')) return;
+            setTimeout(() => {
+                card.classList.add('flipped');
+                setTimeout(() => {
+                    card.classList.add('matched');
+                    matchedPairs++; 
+                    let displayCount = Math.min(Math.floor((index+1)/2) + matchedPairs, 10);
+                    matchDisplay.innerText = Math.min(matchedPairs, 10);
+                }, 300);
+            }, index * 100); 
+        });
+
+        // 確保在動畫結束後觸發勝利
+        const totalAnimationTime = allCards.length * 100 + 800;
+        setTimeout(() => {
+            matchedPairs = totalPairs; 
+            endGame(true);
+            cheatTriggered = false; 
+        }, totalAnimationTime);
+    }
+
+    // --- ★★★ 修正版：過場動畫函數 (確保ID唯一) ★★★ ---
+    function playTransition() {
+        resultModal.classList.add('hidden');
+        resultModal.style.display = 'none';
+
+        const layer = document.getElementById('transition-layer');
+        if (layer) {
+            layer.classList.remove('hidden');
+            layer.style.display = 'block';
+            layer.style.pointerEvents = 'auto'; 
+        }
+
+        const crashScreen = document.getElementById('crash-screen');
+        const desktopLayer = document.getElementById('desktop-layer');
+        const dialogueBox = document.getElementById('dialogue-container');
+        const output = document.getElementById('console-output');
+        const patchActor = document.getElementById('patch-actor-desktop');
+        const handActor = document.getElementById('hand-actor');
+
+        crashScreen.style.opacity = 0;
+        crashScreen.classList.remove('shattering');
+        desktopLayer.classList.remove('visible');
+        
+        dialogueBox.classList.remove('hidden');
+        output.innerHTML = '';
+        patchActor.className = ''; 
+        handActor.className = ''; 
+
+        setTimeout(() => {
+            crashScreen.style.opacity = 1;
+        }, 500);
+
+        const script = [
+            { text: "SYSTEM: 致命錯誤。應用程式已停止回應。", type: "msg-system", delay: 2500, action: "shatter" },
+            { text: "帕奇：『咦？畫面怎麼黑掉了？我們不是過關了嗎？』", type: "msg-patch", delay: 2500, action: "patchFadeIn" },
+            { text: "帕奇：『這裡好安靜... 那些發光的方塊是... 應用程式圖示(Icons)？』", type: "msg-patch", delay: 2500, action: "patchJump" },
+            { text: "帕奇：『天啊，我們掉出遊戲外了！這裡是... 桌面！』", type: "msg-patch", delay: 2000 },
+            { text: "造物主：『哼。居然能鑽出我的代碼牢籠。』", type: "msg-creator", delay: 2000 },
+            { text: "造物主：『既然自動化程序刪不掉你，那我就手動執行。』", type: "msg-creator", delay: 2000 },
+            { text: "SYSTEM: 偵測到游標移動... 目標鎖定：Patch.exe", type: "msg-system", delay: 2000, action: "handAppear" },
+            { text: "造物主：『看見那個垃圾桶了嗎？那就是你的歸宿。』", type: "msg-creator", delay: 2000 },
+            { text: "帕奇：『哇！那隻巨大的手抓過來了！快跑！！』", type: "msg-patch", delay: 1500, action: "chase" },
+            { text: ">> 正在載入 Level 4: 桌面狂奔...", type: "msg-system", delay: 2000 }
+        ];
+
+        let step = 0;
+
+        setTimeout(() => {
+            playNextLine();
+        }, 2500);
+
+        // --- 完整的 playNextLine 函式 ---
+        function playNextLine() {
+        // 檢查是否還有下一句劇情
+            if (step < script.length) {
+                const line = script[step];
+
+                // 1. 動作處理 (Action Handling)
+                try {
+                    if (line.action === "shatter") {
+                        // 觸發藍屏碎裂
+                        crashScreen.classList.add('shattering');
+                        // 碎裂後顯示桌面背景
+                        setTimeout(() => { desktopLayer.classList.add('visible'); }, 600);
+                        } 
+                    else if (line.action === "patchFadeIn") {
+                        // 帕奇淡入
+                        patchActor.classList.add('fade-in');
+                    }
+                    else if (line.action === "patchJump") {
+                        // 帕奇跳躍
+                        patchActor.classList.add('jump');
+                        setTimeout(() => patchActor.classList.remove('jump'), 500);
+                    }
+                    else if (line.action === "handAppear") {
+                        // 大手出現
+                        handActor.classList.add('appear');
+                    }
+                    else if (line.action === "chase") {
+                        // 追逐戲：帕奇往左跑，大手往下抓
+                        patchActor.classList.add('run-left'); 
+                        setTimeout(() => { handActor.classList.add('grab-fail'); }, 300); 
+                    }
+                } catch (e) { console.log(e); }
+
+                // 2. 文字顯示邏輯 (Text Display)
+                // ★ 重點修改：先清空舊訊息，確保畫面上只有一句話
+                output.innerHTML = ''; 
+
+                const p = document.createElement('div');
+                p.classList.add('console-line', line.type);
+                p.innerText = line.text;
+        
+                // 強制讓文字置中，確保視覺效果像電影字幕
+                p.style.width = "100%";
+                p.style.textAlign = "center";
+
+                output.appendChild(p);
+        
+                // 3. 準備下一句
+                step++;
+                const extraDelay = line.action ? 500 : 0; // 如果有動作，稍微多等一下
+                setTimeout(playNextLine, line.delay + extraDelay);
+
+            } else {
+                // 4. 劇情結束，跳轉到 Level 4
+                setTimeout(() => {
+                    window.location.href = "level4.html"; 
+                }, 1000);
+            }
+        }
+    }
+</script>
+</body>
+</html>

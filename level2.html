@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>第二關 - 廢棄的戀愛守則</title>
+    <link rel="stylesheet" href="level2.css">
+</head>
+<body data-theme="love-glitch">
+    <div class="top-hud">
+        <div class="score-box">
+            <span>SCORE: </span><span id="score-display">0</span> / 800
+        </div>
+        <div class="anger-box">
+            <span>HER ANGER: </span>
+            <div class="anger-bar-bg">
+                <div id="anger-bar" class="anger-bar-fill" style="width: 0%;"></div>
+            </div>
+            <span id="anger-text">0%</span>
+        </div>
+    </div>
+
+    <div class="game-wrapper">
+        <div class="visual-novel-panel">
+            <div class="character-container">
+                <img id="girl-img" 
+                     src="k_ai.png" 
+                     alt="被刪除的角色" 
+                     class="character-img"
+                     onclick="triggerHiddenBug()"
+                     style="cursor: help;" 
+                     title="???">
+                
+                <div id="glitch-overlay" class="glitch-effect"></div>
+                <div id="heal-overlay" class="heal-effect"></div>
+            </div>
+            <div class="dialogue-box">
+                <div class="speaker-name">??? (被刪除的角色)</div>
+                <div id="dialogue-text" class="typewriter">
+                    「這裡好冷... 為什麼... 為什麼連你也離開我了...？」
+                </div>
+            </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="gameCanvas" width="600" height="500"></canvas>
+            <div id="start-overlay" class="canvas-overlay">
+                <p>PRESS SPACE TO START</p>
+                <p style="font-size: 14px; opacity: 0.7;">使用 ⬅️ ➡️ 方向鍵移動</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="card-modal" class="modal-overlay">
+        <div class="card-container">
+            <h2 class="card-title">回憶碎片解析中...</h2>
+            <p style="color:#aaa; font-size:14px; margin-bottom:20px;">[ ⬅️ ➡️ 選擇 / SHIFT 確定 ]</p>
+            <div class="cards-wrapper">
+                <div id="btn-comfort" class="card card-comfort">
+                    <div class="card-icon">🌸</div>
+                    <h3>溫柔安撫</h3>
+                    <p>「妳已經做得很好了...」</p>
+                    <small>憤怒 -15</small>
+                </div>
+                <div id="btn-enrage" class="card card-enrage">
+                    <div class="card-icon">🔥</div>
+                    <h3>現實激怒</h3>
+                    <p>「這就是妳被刪除的原因。」</p>
+                    <small>憤怒 +25 / 分數 +50</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="warning-modal" class="modal-overlay" style="display:none;">
+        <div class="result-box warning-style">
+            <h1 class="warning-text">⚠️ SYSTEM WARNING ⚠️</h1>
+            <p>監測到異常情緒波動！</p>
+            <p>憤怒值已突破 40%，外觀發生變異。</p>
+            <div class="patch-quote" style="display:block; margin-top: 15px; color: #00d4ff;">
+                帕奇：「哇！她變樣子了！<br>如果不快點安撫她，遊戲真的會崩潰的！」
+            </div>
+            <p style="font-size: 0.9em; opacity: 0.8; margin-top:10px;">(提示：請尋找「溫柔安撫」選項降低數值)</p>
+            <button class="main-btn" onclick="closeWarning()">SHIFT 收到，繼續執行</button>
+        </div>
+    </div>
+
+    <div id="result-modal" class="modal-overlay" style="display:none;">
+        <div class="result-box">
+            <h1 id="result-title"></h1>
+            <p id="result-msg"></p>
+            <div id="patch-quote" class="patch-quote" style="display:none;">
+                帕奇：「妳不需要男主角，妳需要的是系統優化。」
+            </div>
+            <button id="next-level-btn" class="main-btn" onclick="nextLevel()" style="display:none;">前往核心 >></button>
+            <button id="retry-btn" class="main-btn retry" onclick="location.reload()" style="display:none;">重新讀檔</button>
+        </div>
+    </div>
+
+    <div id="transition-overlay" class="modal-overlay" style="display:none; background: #000; z-index: 999;">
+        
+        <div id="scene-layer" class="scene-container" style="opacity: 0;">
+            <div id="map-pile" class="map-pile"></div>
+            <div id="falling-maps-container"></div>
+            <div id="patch-actor" class="patch-actor">
+                <div class="patch-body">👾</div> <div class="patch-name-tag">PATCH</div>
+            </div>
+        </div>
+
+        <div class="console-wrapper">
+            <div id="console-output"></div>
+            <div class="loading-cursor">_</div>
+        </div>
+    </div>
+
+    <script>
+        // --- 變數設定 ---
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        
+        let score = 0;
+        let anger = 0;
+        let isGameOver = false;
+        let isPaused = true;
+        let warningShown = false; 
+        
+        // Bug 觸發狀態鎖
+        let isBugUsed = false;
+
+        // 卡牌系統變數
+        let isCardSelectionActive = false;
+        let cardIndex = 0; // 0 = comfort, 1 = enrage
+
+        // 射擊系統變數
+        let bullets = [];
+        let shootTimer = 0;
+        const bulletSpeed = 5;
+
+        // 打磚塊參數
+        const ballRadius = 6;
+        let x = canvas.width / 2;
+        let y = canvas.height - 30;
+        let dx = 3; 
+        let dy = -3; 
+        
+        const paddleHeight = 10;
+        const paddleWidth = 150;
+        
+        let paddleX = (canvas.width - paddleWidth) / 2;
+        let rightPressed = false;
+        let leftPressed = false;
+
+        // 磚塊
+        const brickRowCount = 6;
+        const brickColumnCount = 8;
+        const brickWidth = 60;
+        const brickHeight = 20;
+        const brickPadding = 10;
+        const brickOffsetTop = 30;
+        const brickOffsetLeft = 25;
+        
+        let bricks = [];
+        function initBricks() {
+            bricks = [];
+            for(let c=0; c<brickColumnCount; c++) {
+                bricks[c] = [];
+                for(let r=0; r<brickRowCount; r++) {
+                    bricks[c][r] = { x: 0, y: 0, status: 1 };
+                }
+            }
+        }
+        initBricks();
+
+        // 掉落物
+        let items = [];
+        const itemRadius = 10;
+        const itemSpeed = 2;
+
+        // --- 監聽器 ---
+        document.addEventListener("keydown", keyDownHandler, false);
+        document.addEventListener("keyup", keyUpHandler, false);
+
+        function keyDownHandler(e) {
+            
+            // 情況 1: 警告視窗開啟中 (優先權最高)
+            if (warningShown && isPaused) {
+                if (e.key === "Shift") {
+                    closeWarning();
+                }
+                return; 
+            }
+
+            // 情況 2: 卡牌選擇模式 (只允許鍵盤操作)
+            if (isCardSelectionActive) {
+                if (e.key === "ArrowLeft" || e.key === "Left") {
+                    cardIndex = 0; // 左
+                    updateCardVisuals();
+                } else if (e.key === "ArrowRight" || e.key === "Right") {
+                    cardIndex = 1; // 右
+                    updateCardVisuals();
+                } else if (e.key === "Shift") { // Shift 鍵確認
+                    const action = (cardIndex === 0) ? 'comfort' : 'enrage';
+                    chooseAction(action);
+                }
+                return; 
+            }
+
+            // 情況 3: 開始畫面
+            if (isPaused && !isGameOver && !isCardSelectionActive && !warningShown) {
+                if (e.code === "Space" || e.key === " ") {
+                    e.preventDefault(); 
+                    startGame();
+                }
+            }
+
+            // 情況 4: 遊戲中操控
+            if (!isPaused) {
+                if(e.key == "Right" || e.key == "ArrowRight") {
+                    rightPressed = true;
+                }
+                else if(e.key == "Left" || e.key == "ArrowLeft") {
+                    leftPressed = true;
+                }
+            }
+        }
+        
+        function keyUpHandler(e) {
+            if(e.key == "Right" || e.key == "ArrowRight") {
+                rightPressed = false;
+            }
+            else if(e.key == "Left" || e.key == "ArrowLeft") {
+                leftPressed = false;
+            }
+        }
+
+        // --- 繪圖函數 ---
+        function drawBall() {
+            ctx.beginPath();
+            ctx.arc(x, y, ballRadius, 0, Math.PI*2);
+            ctx.fillStyle = "#ffeb3b"; 
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = "#ffeb3b";
+            ctx.fill();
+            ctx.closePath();
+            ctx.shadowBlur = 0;
+        }
+
+        function drawPaddle() {
+            ctx.beginPath();
+            ctx.rect(paddleX, canvas.height-paddleHeight, paddleWidth, paddleHeight);
+            
+            if (shootTimer > 0) {
+                ctx.fillStyle = "#ff4444"; 
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = "#ff4444";
+            } else {
+                ctx.fillStyle = "#00d4ff"; 
+                ctx.shadowBlur = 0;
+            }
+            
+            ctx.fill();
+            ctx.closePath();
+            ctx.shadowBlur = 0;
+        }
+
+        function drawBricks() {
+            for(let c=0; c<brickColumnCount; c++) {
+                for(let r=0; r<brickRowCount; r++) {
+                    if(bricks[c][r].status == 1) {
+                        const brickX = (c*(brickWidth+brickPadding)) + brickOffsetLeft;
+                        const brickY = (r*(brickHeight+brickPadding)) + brickOffsetTop;
+                        bricks[c][r].x = brickX;
+                        bricks[c][r].y = brickY;
+                        
+                        ctx.beginPath();
+                        ctx.rect(brickX, brickY, brickWidth, brickHeight);
+                        ctx.fillStyle = `rgba(255, ${100 + r*20}, ${150 + c*10}, 0.8)`;
+                        ctx.fill();
+                        ctx.closePath();
+                    }
+                }
+            }
+        }
+
+        function drawItems() {
+            for(let i=0; i<items.length; i++) {
+                if(items[i].active) {
+                    ctx.beginPath();
+                    ctx.font = "20px Arial";
+                    if (items[i].type === 'drug') {
+                        ctx.fillText("💊", items[i].x - 10, items[i].y + 5); 
+                    } else {
+                        ctx.fillText("💌", items[i].x - 10, items[i].y + 5); 
+                    }
+                    ctx.closePath();
+                }
+            }
+        }
+
+        function drawBullets() {
+            ctx.fillStyle = "#ffff00";
+            for(let i=0; i<bullets.length; i++) {
+                ctx.beginPath();
+                ctx.rect(bullets[i].x, bullets[i].y, 4, 10);
+                ctx.fill();
+                ctx.closePath();
+            }
+        }
+
+        // --- 邏輯運算 ---
+        function collisionDetection() {
+            for(let c=0; c<brickColumnCount; c++) {
+                for(let r=0; r<brickRowCount; r++) {
+                    let b = bricks[c][r];
+                    if(b.status == 1) {
+                        if(x > b.x && x < b.x+brickWidth && y > b.y && y < b.y+brickHeight) {
+                            dy = -dy;
+                            b.status = 0;
+                            updateScore(10);
+                            
+                            if(Math.random() < 0.50) {  // 球撞破磚塊的掉落率
+                                spawnItem(b.x + brickWidth/2, b.y + brickHeight/2);
+                            }
+                            checkLevelClear();
+                        }
+                    }
+                }
+            }
+        }
+        
+        function checkLevelClear() {
+            let remainingBricks = 0;
+            for(let c=0; c<brickColumnCount; c++) {
+                for(let r=0; r<brickRowCount; r++) {
+                    if(bricks[c][r].status == 1) remainingBricks++;
+                }
+            }
+
+            if(remainingBricks <= 5) {
+                initBricks();
+                if (Math.abs(dy) < 6) {
+                    dx = dx * 1.05; 
+                    dy = dy * 1.05;
+                }
+                updateDialogue("數據正在重組... 磚塊再生中...", true);
+            }
+        }
+
+        function spawnItem(bx, by) {
+            const itemType = Math.random() < 0.3 ? 'drug' : 'heart';
+            items.push({ x: bx, y: by, active: true, type: itemType });
+        }
+
+        function updateItems() {
+            for(let i=0; i<items.length; i++) {
+                if(items[i].active) {
+                    items[i].y += itemSpeed;
+                    
+                    if(items[i].y + itemRadius > canvas.height - paddleHeight &&
+                       items[i].x > paddleX && items[i].x < paddleX + paddleWidth) {
+                        
+                        items[i].active = false;
+
+                        if (items[i].type === 'drug') {
+                            // ★ 修改點：子彈時間改為 6 秒
+                            // 假設 60 FPS，6秒 = 360 frames
+                            shootTimer = 360; 
+                            updateDialogue("獲得 [系統漏洞補丁]！攻擊模組加載中！(持續6秒)", true);
+                        } else {
+                            triggerCardEvent(); 
+                        }
+                    }
+                    
+                    if(items[i].y > canvas.height) {
+                        items[i].active = false;
+                    }
+                }
+            }
+            items = items.filter(item => item.active);
+        }
+
+        function updateBullets() {
+            if (shootTimer > 0) {
+                shootTimer--;
+                if (shootTimer % 20 === 0) {
+                    bullets.push({ x: paddleX + paddleWidth / 2 - 2, y: canvas.height - paddleHeight });
+                }
+            }
+
+            for (let i = 0; i < bullets.length; i++) {
+                bullets[i].y -= bulletSpeed;
+                
+                let hit = false;
+                for(let c=0; c<brickColumnCount; c++) {
+                    for(let r=0; r<brickRowCount; r++) {
+                        let b = bricks[c][r];
+                        if(b.status == 1) {
+                            if(bullets[i].x > b.x && bullets[i].x < b.x + brickWidth &&
+                               bullets[i].y > b.y && bullets[i].y < b.y + brickHeight) {
+                                
+                                b.status = 0; 
+                                updateScore(10); 
+                                hit = true;
+                                
+                                if(Math.random() < 0.1) { 
+                                    spawnItem(b.x + brickWidth/2, b.y + brickHeight/2);
+                                }
+                                checkLevelClear();
+                                break; 
+                            }
+                        }
+                    }
+                    if(hit) break;
+                }
+                
+                if (hit || bullets[i].y < 0) {
+                    bullets[i].y = -999;
+                }
+            }
+            
+            bullets = bullets.filter(b => b.y > -100);
+        }
+
+        function updateScore(points) {
+            score += points;
+            document.getElementById('score-display').innerText = score;
+            checkWinCondition();
+        }
+
+        function updateAnger(amount) {
+            anger += amount;
+            if (anger < 0) anger = 0;
+            if (anger > 100) anger = 100;
+            
+            const bar = document.getElementById('anger-bar');
+            bar.style.width = anger + "%";
+            document.getElementById('anger-text').innerText = anger + "%";
+            
+            updateGirlVisuals();
+            
+            if (anger >= 40 && !warningShown) {
+                showWarning();
+            }
+            if (anger < 30) {
+                warningShown = false;
+            }
+
+            if (anger >= 100) {
+                gameOver("失敗", "她徹底崩潰了，世界被怨念吞噬。");
+            }
+            
+            checkWinCondition();
+        }
+
+        // --- 暫停與警告系統 ---
+        function showWarning() {
+            isPaused = true;
+            warningShown = true;
+            document.getElementById('warning-modal').style.display = 'flex';
+        }
+
+        function closeWarning() {
+            document.getElementById('warning-modal').style.display = 'none';
+            isPaused = false;
+            if (!isGameOver) {
+                draw();
+            }
+        }
+
+        function checkWinCondition() {
+            // ★ 修改點：通關分數改為 800
+            if (score >= 800 && anger < 100) {
+                gameWin();
+            }
+        }
+
+        // --- 視覺與對話邏輯 ---
+        function updateGirlVisuals() {
+            const charImg = document.getElementById('girl-img');
+            const glitchOverlay = document.getElementById('glitch-overlay');
+            const body = document.body;
+            
+            const normalSrc = "k_ai.png";
+            const angrySrc = "k_ai_anger.png";
+
+            if (anger >= 40) {
+                if (!charImg.src.includes("ERROR")) { 
+                    charImg.src = angrySrc;
+                }
+                charImg.classList.add('angry-mode');
+                glitchOverlay.style.display = "block";
+                body.style.background = "#2a0000"; 
+            } else {
+                if (!charImg.src.includes("Sad")) {
+                      charImg.src = normalSrc;
+                }
+                charImg.classList.remove('angry-mode');
+                glitchOverlay.style.display = "none";
+                body.style.background = "#0f050a"; 
+            }
+        }
+
+        function updateDialogue(text, isSystem = false) {
+            const box = document.getElementById('dialogue-text');
+            const name = document.querySelector('.speaker-name');
+            
+            if(isSystem) {
+                name.innerText = "帕奇 (SYSTEM)";
+                name.style.color = "#00d4ff";
+            } else {
+                name.innerText = "??? (被刪除的角色)";
+                name.style.color = "#ff69b4";
+            }
+            
+            box.innerText = text;
+            box.classList.remove('typewriter');
+            void box.offsetWidth; 
+            box.classList.add('typewriter');
+        }
+
+        // --- 卡牌事件系統 ---
+        function triggerCardEvent() {
+            isPaused = true;
+            isCardSelectionActive = true;
+            
+            // 重置為預設選擇 (左邊)
+            cardIndex = 0;
+            updateCardVisuals(); 
+            
+            document.getElementById('card-modal').style.display = 'flex';
+        }
+
+        // 更新卡牌視覺 (Highlight 選中項)
+        function updateCardVisuals() {
+            const leftCard = document.getElementById('btn-comfort');
+            const rightCard = document.getElementById('btn-enrage');
+            
+            // 先移除所有選中效果
+            leftCard.classList.remove('selected');
+            rightCard.classList.remove('selected');
+            
+            // 根據 index 添加選中效果
+            if (cardIndex === 0) {
+                leftCard.classList.add('selected');
+            } else {
+                rightCard.classList.add('selected');
+            }
+        }
+
+        function chooseAction(type) {
+            document.getElementById('card-modal').style.display = 'none';
+            isPaused = false;
+            isCardSelectionActive = false; // 解除卡牌模式
+            
+            const sadTalks = [
+                "我的程式碼... 真的很醜嗎？",
+                "我只是想要一個 Happy Ending...",
+                "如果是你... 會喜歡我嗎？"
+            ];
+            const angryTalks = [
+                "都怪開發者！都怪那個女人！",
+                "刪除... 全部刪除...",
+                "為什麼我不能當主角！"
+            ];
+
+            if (type === 'comfort') {
+                updateAnger(-15);
+                const reply = sadTalks[Math.floor(Math.random() * sadTalks.length)];
+                updateDialogue(reply);
+            } else if (type === 'enrage') {
+                updateAnger(20); 
+                updateScore(50); 
+                const reply = angryTalks[Math.floor(Math.random() * angryTalks.length)];
+                updateDialogue(reply);
+            }
+
+            draw();
+        }
+
+        // --- 遊戲主循環 ---
+        function draw() {
+            if (isPaused || isGameOver) {
+                return;
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBricks();
+            drawItems();   
+            drawBullets(); 
+            drawBall();
+            drawPaddle();
+            
+            collisionDetection();
+            updateItems();   
+            updateBullets(); 
+
+            // 物理邏輯
+            if(x + dx > canvas.width-ballRadius || x + dx < ballRadius) {
+                dx = -dx;
+            }
+            if(y + dy < ballRadius) {
+                dy = -dy;
+            } else if(y + dy > canvas.height-ballRadius) {
+                if(x > paddleX && x < paddleX + paddleWidth) {
+                    let collidePoint = x - (paddleX + paddleWidth/2);
+                    collidePoint = collidePoint / (paddleWidth/2);
+                    
+                    dx = collidePoint * 5; 
+                    dy = -dy;
+                }
+                else {
+                    updateDialogue("連球都接不住... 就像我抓不住愛情一樣。", false);
+                    updateAnger(5); 
+                    
+                    x = canvas.width/2;
+                    y = canvas.height-30;
+                    dx = 3;
+                    dy = -3;
+                    paddleX = (canvas.width-paddleWidth)/2;
+                }
+            }
+
+            x += dx;
+            y += dy;
+
+            if(rightPressed && paddleX < canvas.width-paddleWidth) {
+                paddleX += 7;
+            }
+            else if(leftPressed && paddleX > 0) {
+                paddleX -= 7;
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        // --- 遊戲流程 ---
+        function startGame() {
+            if(isPaused) {
+                isPaused = false;
+                document.getElementById('start-overlay').style.display = 'none';
+                draw();
+            }
+        }
+
+        function gameOver(title, msg) {
+            isGameOver = true;
+            document.getElementById('result-modal').style.display = 'flex';
+            document.getElementById('result-title').innerText = title;
+            document.getElementById('result-title').style.color = "red";
+            document.getElementById('result-msg').innerText = msg;
+            document.getElementById('retry-btn').style.display = 'block';
+        }
+
+        function gameWin() {
+            if(isGameOver) return; 
+            isGameOver = true;
+            
+            updateDialogue("...... 咦？憤怒... 消失了？");
+            
+            setTimeout(() => {
+                document.getElementById('result-modal').style.display = 'flex';
+                document.getElementById('result-title').innerText = "CHAPTER CLEAR";
+                document.getElementById('result-title').style.color = "#00ff9d";
+                document.getElementById('result-msg').innerText = "數據重組成功。記憶體釋放完畢。";
+                
+                const quote = document.getElementById('patch-quote');
+                quote.style.display = 'block';
+                
+                document.getElementById('next-level-btn').style.display = 'block';
+            }, 4000);
+        }
+
+        // --- Bug 觸發邏輯 ---
+        function triggerHiddenBug() {
+            if (isGameOver || isBugUsed) return;
+            isBugUsed = true;
+
+            const healOverlay = document.getElementById('heal-overlay');
+            const girlImg = document.getElementById('girl-img');
+            
+            healOverlay.classList.add('heal-anim');
+            girlImg.classList.add('purified');
+            
+            setTimeout(() => {
+                girlImg.classList.remove('purified');
+                updateGirlVisuals(); 
+            }, 1000);
+
+            const angerToClear = anger;
+            updateAnger(-angerToClear);
+            updateScore(500);
+
+            showFloatingText("+500 SCORE", canvas.width / 2 + 100, canvas.height / 2);
+            showFloatingText("ANGER CLEARED!", canvas.width / 2 + 100, canvas.height / 2 + 50);
+
+            isPaused = true; 
+            updateDialogue("帕奇：『天啊！你做了什麼？這...這是傳說中的「摸頭殺」協議？！\n竟然直接繞過了憤怒運算機制！』", true);
+
+            setTimeout(() => {
+                isPaused = false;
+                draw();
+            }, 3000);
+        }
+
+        function showFloatingText(text, x, y) {
+            const el = document.createElement('div');
+            el.className = 'floating-score';
+            el.innerText = text;
+            el.style.left = x + 'px'; 
+            el.style.top = y + 'px';
+            
+            document.querySelector('.visual-novel-panel').appendChild(el); 
+            setTimeout(() => el.remove(), 2000);
+        }
+
+        // --- ★ 修改：過場劇情邏輯 (含動畫觸發) ---
+        function nextLevel() {
+            // 1. 隱藏結算視窗
+            document.getElementById('result-modal').style.display = 'none';
+            
+            // 2. 顯示過場遮罩
+            const overlay = document.getElementById('transition-overlay');
+            const output = document.getElementById('console-output');
+            const sceneLayer = document.getElementById('scene-layer');
+            
+            overlay.style.display = 'flex';
+
+            // 3. 劇情腳本 (新增 action 欄位)
+            const script = [
+                { text: "⚠ SYSTEM ALERT: 偵測到異常核心訪問權限...", type: "msg-system", delay: 1000 },
+                { text: "造物主：『哼... 一隻不知名的小蟲子，竟敢隨意竄改我的戀愛參數？』", type: "msg-creator", delay: 2000 },
+                { text: "造物主：『既然你想前進，那我就把這些垃圾都送給你吧。』", type: "msg-creator", delay: 1000 },
+                { text: ">> 執行指令: DUMP_TRASH_BIN.exe --force", type: "msg-cmd", delay: 500 },
+                
+                // ★ 觸發地圖下落動畫
+                { text: ">> 正在傾倒 [廢棄地圖數據] ... 100%", type: "msg-cmd", delay: 2500, action: "dropMaps" },
+                
+                // ★ 觸發帕奇進場動畫
+                { text: "帕奇：『哇！等等！前面怎麼突然堆滿了東西？』", type: "msg-patch", delay: 2500, action: "patchEnter" },
+                
+                { text: "帕奇：『這些是... 載入失敗的地圖？路被堵死了！』", type: "msg-patch", delay: 2000 },
+                { text: "帕奇：『看來只能動手清理掉這些廢棄代碼，才能繼續前進了...』", type: "msg-patch", delay: 3000 },
+                { text: ">> SYSTEM: 初始化 Level 3...", type: "msg-system", delay: 1000 }
+            ];
+
+            let step = 0;
+
+            function playScript() {
+                if (step < script.length) {
+                    const lineData = script[step];
+                    
+                    // 執行特殊動作
+                    if (lineData.action === "dropMaps") {
+                        startMapRain();
+                    } else if (lineData.action === "patchEnter") {
+                        startPatchWalk();
+                    }
+
+                    // 創建文字行
+                    const p = document.createElement('div');
+                    p.classList.add('console-line', lineData.type);
+                    p.innerText = lineData.text;
+                    output.appendChild(p);
+                    
+                    // 滾動到底部
+                    // window.scrollTo(0, document.body.scrollHeight); // 如果是 whole body scroll
+                    // 建議讓 console-wrapper 內部滾動較佳，這裡保持原樣簡單處理
+                    
+                    step++;
+                    setTimeout(playScript, lineData.delay);
+                } else {
+                    // 4. 腳本結束，跳轉
+                    setTimeout(() => {
+                        window.location.href = "level3.html"; 
+                    }, 1000);
+                }
+            }
+
+            // --- 動畫輔助函數 ---
+            function startMapRain() {
+                // 顯示場景層
+                sceneLayer.style.opacity = "1";
+                
+                // 顯示右下角堆積物
+                document.getElementById('map-pile').classList.add('visible');
+
+                // 產生下落的地圖雨 (持續產生 25 個)
+                let count = 0;
+                const rainInterval = setInterval(() => {
+                    createFallingMap();
+                    count++;
+                    if (count > 25) clearInterval(rainInterval);
+                }, 100);
+            }
+
+            function createFallingMap() {
+                const container = document.getElementById('falling-maps-container');
+                const map = document.createElement('div');
+                map.classList.add('falling-map');
+                map.innerText = ['🗺️', '📄', '🚫'][Math.floor(Math.random()*3)];
+                
+                // ★ 修改這裡：調整下落範圍以對齊新的垃圾堆位置
+                // 60%~100%
+                const randomLeft = 60 + Math.random() * 40; 
+                
+                map.style.left = randomLeft + '%';
+                map.style.animationDuration = (1 + Math.random()) + 's'; 
+                
+                container.appendChild(map);
+                
+                // 動畫結束後移除 DOM
+                setTimeout(() => map.remove(), 2000);
+            }
+
+            function startPatchWalk() {
+                const patch = document.getElementById('patch-actor');
+                patch.classList.add('walk-in');
+            }
+
+            // 開始播放
+            playScript();
+        }
+    </script>
+</body>
+</html>

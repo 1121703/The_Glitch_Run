@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>崩壞回收跑酷 - 命運骰子版</title>
+    <link rel="stylesheet" href="level4.css">
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="recycle-bin">
+            <img src="recycle.png" alt="Recycle Bin">
+        </div>
+        
+        <div class="info-panel">
+            <div id="score-board">SCORE: 0</div>
+            <div id="life-board">VIT: ???</div>
+        </div>
+
+        <div id="cheat-button" title="點擊啟用快速通關">
+            <img src="core.png" alt="Cheat Chip">
+        </div>
+
+        <div id="ground"></div>
+        <div id="player">👾</div>
+        <div id="obstacle"></div>
+        <div id="the-hand">
+          <img src="hand.png" alt="The Hand">
+        </div>
+
+        <div id="dice-overlay">
+            <div style="margin-bottom:10px; color:var(--glitch-cyan);">ROLLING FATE DICE...</div>
+            <div id="dice-box">?</div>
+            <div id="dice-msg" style="margin-top:10px;">GENERATING VITALITY</div>
+        </div>
+
+        <div id="msg-overlay">
+            <div id="msg-title" style="color:var(--main-green);">SYSTEM READY</div>
+            <div id="msg-subtitle">PRESS [SPACE] TO ROLL DICE</div>
+        </div>
+    </div>
+
+    <script>
+        const player = document.getElementById('player');
+        const obstacle = document.getElementById('obstacle');
+        const scoreBoard = document.getElementById('score-board');
+        const lifeBoard = document.getElementById('life-board');
+        const msgOverlay = document.getElementById('msg-overlay');
+        const msgTitle = document.getElementById('msg-title');
+        const msgSubtitle = document.getElementById('msg-subtitle');
+        const theHand = document.getElementById('the-hand');
+        const diceOverlay = document.getElementById('dice-overlay');
+        const diceBox = document.getElementById('dice-box');
+        const diceMsg = document.getElementById('dice-msg');
+        const cheatBtn = document.getElementById('cheat-button');
+
+        let score = 0;
+        let lives = 0;
+        let initialLives = 0; 
+        
+        let isRunning = false;
+        let isGameOver = false;
+        let isRolling = false; 
+        let isInvincible = false; 
+        
+        let gameWon = false;   
+        let canRestart = false; 
+
+        let gameLoop;
+        let scoreInterval;
+        let cheatInterval; 
+
+        // 監聽操作
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') handleInput();
+        });
+        document.getElementById('game-container').addEventListener('click', handleInput);
+
+        function handleInput() {
+            if (isGameOver) {
+                if (!canRestart) return; 
+
+                if (gameWon) {
+                    window.location.href = 'index.html';
+                } else {
+                    resetGame();
+                }
+                return;
+            }
+
+            if (!isRunning && !isRolling) {
+                startDiceRoll();
+            } else if (isRunning) {
+                jump();
+            }
+        }
+
+        cheatBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); 
+            activateCheat();
+        });
+
+        // --- 階段 1: 擲骰子系統 ---
+        function startDiceRoll() {
+            isRolling = true;
+            msgOverlay.style.display = 'none';
+            diceOverlay.style.display = 'flex';
+            diceBox.classList.add('dice-shake');
+
+            let rollCount = 0;
+            let rollInterval = setInterval(() => {
+                diceBox.innerText = Math.floor(Math.random() * 6) + 1;
+                rollCount++;
+                
+                if (rollCount > 20) {
+                    clearInterval(rollInterval);
+                    finishDiceRoll();
+                }
+            }, 80);
+        }
+
+        function finishDiceRoll() {
+            diceBox.classList.remove('dice-shake');
+            let finalLives = Math.floor(Math.random() * 6) + 1;
+            
+            lives = finalLives;
+            initialLives = finalLives; 
+            
+            diceBox.innerText = lives;
+            diceMsg.innerText = "VITALITY CONFIRMED";
+            diceBox.style.color = "#fff";
+            diceBox.style.borderColor = "#fff";
+
+            updateLifeUI();
+
+            setTimeout(() => {
+                diceOverlay.style.display = 'none';
+                isRolling = false;
+                startGame();
+            }, 1000);
+        }
+
+        function updateLifeUI() {
+            let lifeBar = "♥".repeat(lives);
+            lifeBoard.innerText = `VIT: ${lifeBar}`;
+            
+            if (lives <= 1) {
+                lifeBoard.style.color = "var(--glitch-pink)"; 
+            } else {
+                lifeBoard.style.color = "var(--glitch-cyan)";
+            }
+        }
+
+        // --- 階段 2: 遊戲邏輯 ---
+        function startGame() {
+            isRunning = true;
+            isGameOver = false; 
+            gameWon = false;
+            canRestart = false;
+
+            cheatBtn.style.display = 'block'; 
+            
+            // === 關鍵修復：重置障礙物狀態 ===
+            obstacle.style.display = 'block'; // 確保顯示
+            obstacle.style.animation = '';    // 清除 inline 的 'none' 設定，讓 CSS class 生效
+            obstacle.style.left = '800px';    // 強制重置位置到右邊
+            
+            // 為了保證動畫重新觸發，先移除再加入 class
+            obstacle.classList.remove('obstacle-move');
+            void obstacle.offsetWidth; // 強制瀏覽器重繪 (Magic Reflow)
+            obstacle.classList.add('obstacle-move');
+            // =============================
+
+            // === 關鍵修復：重置主角狀態 ===
+            player.style.display = 'block'; // 確保主角顯示
+            player.classList.remove('damage-blink'); // 移除受傷閃爍
+            player.style.opacity = '1';
+            // ===========================
+
+            scoreInterval = setInterval(() => {
+                if (!isGameOver) {
+                    score++;
+                    scoreBoard.innerText = "SCORE: " + score;
+                    if (score >= 250) winGame(); 
+                }
+            }, 100);
+
+            gameLoop = setInterval(checkCollision, 10);
+        }
+
+        function resetGame() {
+            msgOverlay.style.display = 'none';
+            theHand.style.display = 'none'; // 確保手掌消失
+            
+            score = 0;
+            lives = initialLives; 
+            scoreBoard.innerText = "SCORE: 0";
+            updateLifeUI();
+
+            if (cheatInterval) clearInterval(cheatInterval);
+            isInvincible = false;
+            
+            startGame();
+        }
+
+        function jump() {
+            if (!player.classList.contains('animate-jump')) {
+                player.classList.add('animate-jump');
+                setTimeout(() => {
+                    player.classList.remove('animate-jump');
+                }, 500);
+            }
+        }
+
+        function checkCollision() {
+            if (isInvincible) return;
+
+            let pRect = player.getBoundingClientRect();
+            let oRect = obstacle.getBoundingClientRect();
+
+            if (
+                pRect.right > oRect.left + 10 &&
+                pRect.left < oRect.right - 10 &&
+                pRect.bottom > oRect.top + 5
+            ) {
+                takeDamage();
+            }
+        }
+
+        function takeDamage() {
+            lives--; 
+            updateLifeUI();
+
+            if (lives <= 0) {
+                triggerGameOver();
+            } else {
+                triggerInvincibility();
+            }
+        }
+
+        function triggerInvincibility() {
+            isInvincible = true;
+            player.classList.add('damage-blink');
+    
+            setTimeout(() => {
+                if (!cheatInterval) { 
+                    isInvincible = false;
+                    player.classList.remove('damage-blink');
+                }
+            }, 1500);
+        }
+
+        function triggerGameOver() {
+            isGameOver = true; 
+            isRunning = false;
+            gameWon = false; 
+
+            clearInterval(gameLoop);
+            clearInterval(scoreInterval);
+
+            // 這裡設定了 animation: none，所以在 startGame 必須清除它
+            obstacle.style.animation = 'none';
+            obstacle.style.display = 'none';
+
+            let pTop = player.offsetTop;
+            let pLeft = player.offsetLeft;
+            player.style.display = 'none'; 
+            
+            theHand.style.display = 'block';
+            theHand.style.left = (pLeft - 10) + 'px';
+            theHand.style.top = (pTop - 50) + 'px';
+            
+            theHand.innerHTML = '<img src="hand.png" alt="The Hand" style="width:100px; filter: drop-shadow(0 0 10px var(--glitch-pink));"><span style="font-size:30px; position:absolute; top:50px; left:30px;">👾</span>';
+            
+            theHand.style.animation = "grabAndThrow 1.5s forwards ease-in-out";
+
+            if (cheatInterval) clearInterval(cheatInterval); 
+            cheatBtn.style.display = 'none'; 
+
+            setTimeout(() => {
+                theHand.style.display = 'none';
+                theHand.innerHTML = '<img src="hand.png" alt="The Hand">';
+                showEndScreen("GAME OVER", false);
+            }, 1500);
+        }
+
+        function winGame() {
+            isGameOver = true; 
+            isRunning = false;
+            gameWon = true; 
+
+            clearInterval(gameLoop);
+            clearInterval(scoreInterval);
+            obstacle.classList.remove('obstacle-move');
+            
+            if (cheatInterval) clearInterval(cheatInterval); 
+            cheatBtn.style.display = 'none'; 
+
+            showEndScreen("MISSION COMPLETE", true);
+        }
+
+        function showEndScreen(text, isWin) {
+            msgTitle.innerText = text;
+            msgTitle.style.color = isWin ? 'var(--main-green)' : 'var(--glitch-pink)';
+            
+            if (isWin) {
+                msgSubtitle.innerText = "PRESS [SPACE] TO RETURN HOME";
+            } else {
+                msgSubtitle.innerText = "PRESS [SPACE] TO RETRY";
+            }
+            
+            msgSubtitle.style.display = 'block';
+            msgOverlay.style.display = 'flex';
+            canRestart = true;
+        }
+
+        function activateCheat() {
+            if (isGameOver || !isRunning || cheatInterval) return;
+
+            cheatBtn.style.filter = "drop-shadow(0 0 15px var(--main-green))";
+            isInvincible = true;
+            player.classList.add('damage-blink'); 
+
+            cheatInterval = setInterval(() => {
+                isInvincible = true; 
+                score += 5; 
+                scoreBoard.innerText = "SCORE: " + score;
+
+                if (score >= 250) {
+                    clearInterval(cheatInterval);
+                    winGame();
+            
+                    cheatBtn.style.filter = "";
+                    player.classList.remove('damage-blink'); 
+                }
+            }, 50); 
+        }
+    </script>
+</body>
+</html>

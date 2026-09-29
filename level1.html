@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>第一關 - 貪婪的商業區</title>
+    <link rel="stylesheet" href="level1.css">
+</head>
+<body data-theme="data">
+
+    <div class="top-bar">
+        <div class="status-group">
+            <div>
+                HP: 
+                <div class="progress-container">
+                    <div id="hp-bar-fill" class="progress-fill hp-fill" style="width: 100%;"></div>
+                </div>
+            </div>
+            <div>
+                BOSS: 
+                <div class="progress-container">
+                    <div id="boss-bar-fill" class="progress-fill boss-fill" style="width: 100%;"></div>
+                </div>
+            </div>
+        </div>
+        <div>
+            <span style="margin-right: 15px; font-family: monospace;">
+                TIME: <span id="timer-display"><span id="timer">0</span>s</span>
+            </span>
+            <button class="btn-style" onclick="toggleSettings()">⚙️ 設定</button>
+        </div>
+    </div>
+
+    <div class="game-container">
+        
+        <div class="boss-wrapper">
+            <div id="boss-dialogue" class="boss-dialogue">驗證失敗...請重新輸入...</div>
+            
+            <div class="boss-character" id="boss-char">
+                <div class="boss-head">
+                    <div class="boss-face">$</div>
+                    <div class="sticky-note" onclick="triggerStory()" title="這是什麼？">BUG</div>
+                </div>
+                <div class="boss-body-suit">
+                    <div class="boss-shirt"></div>
+                    <div class="boss-tie"></div>
+                    <div class="boss-shoulders"></div>
+                </div>
+            </div>
+
+            <button id="auto-solve-btn" onclick="autoWin()">[ 執行: override_security.exe ]</button>
+        </div>
+
+        <div class="puzzle-section">
+            <h2 style="margin: 0; color: var(--accent-color); text-transform: uppercase; letter-spacing: 2px;">Security Protocol</h2>
+            <p style="font-size: 12px; opacity: 0.7;">將代碼塊排序為 1-8 以注入病毒</p>
+            <div class="puzzle-board" id="puzzle-board">
+                </div>
+        </div>
+
+    </div>
+
+    <div id="settings-ui" class="overlay" onclick="if(event.target === this) toggleSettings()">
+        <div class="modal-box">
+            <h3>顯示風格設定</h3>
+            <p style="color: #666; font-size: 14px;">(遊戲已暫停)</p>
+            <button class="btn-style" onclick="setTheme('data')">📟 數據風</button>
+            <button class="btn-style" onclick="setTheme('light')">✨ 明亮風</button>
+            <button class="btn-style" onclick="setTheme('dark')">💀 黑暗風</button>
+            <div style="margin-top: 20px;">
+                <button class="btn-style" style="border-color:var(--danger-color);" onclick="toggleSettings()">關閉</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="story-ui" class="overlay" onclick="closeStory()">
+        <div class="modal-box story-modal-wide">
+            <div class="story-layout">
+                <div class="story-visual">
+                    <img src="https://placehold.co/300x300/000000/00ff00?text=PATCH_V1.0" alt="Patch Avatar" class="glitch-img">
+                    <div class="scan-line"></div>
+                </div>
+                
+                <div class="story-content-area">
+                    <div class="story-header">⚠ 系統後門開啟 ⚠</div>
+                    <div class="story-text" id="story-content"></div>
+                    <p class="story-hint">[ 點擊任意處繼續 ]</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-over-ui" class="overlay">
+        <div class="modal-box" style="border-color: var(--danger-color);">
+            <h1 style="color: var(--danger-color); font-size: 48px; margin: 0;">GAME OVER</h1>
+            <p>你的帳戶已被永久凍結。</p>
+            <p style="font-size: 14px; opacity: 0.8;">提示：拼對數字可以對 Boss 造成傷害。</p>
+            <button class="retry-btn" onclick="location.reload()">↺ 重新挑戰</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 變數與狀態 ---
+        let playerHp = 100;
+        let bossHp = 100;
+        let timeElapsed = 0;
+        let isGameActive = true;     // 控制遊戲是否進行中
+        let isStoryTriggered = false; // 避免劇情重複觸發
+        
+        let puzzleState = [1, 2, 3, 4, 5, 6, 7, 8, 0]; 
+        const winState = [1, 2, 3, 4, 5, 6, 7, 8, 0];
+        let previousCorrectCount = 0; 
+
+        // Boss 嘲諷與語錄
+        const taunts = [
+            "404: 希望 (Hope) Not Found.",
+            "交易拒絕：餘額不足 (或者是技術不足)。",
+            "偵測到無效的操作意圖。",
+            "正在重新定向您的絕望...",
+            "您的免費試用期已結束，請立刻儲值。",
+            "建議您升級到「白金會員」以跳過此關。",
+            "想解鎖「獲勝」功能嗎？特價 $99.99。",
+            "偵測到貧窮的氣息... 請遠離 VIP 區。",
+            "正在將您的個資出售給第三方廣告商...",
+            "系統提示：您的「生存」訂閱即將到期。",
+            "正在載入無法略過的 30 秒廣告...",
+            "錯誤代碼 87：玩家智商 (IQ) 連線逾時。",
+            "這就是免費玩家的極限嗎？真可憐。"
+        ];
+
+        window.onload = function() {
+            const savedTheme = localStorage.getItem('glitchGameTheme');
+            if (savedTheme) document.body.setAttribute('data-theme', savedTheme);
+            initGame();
+        };
+
+        function initGame() {
+            shufflePuzzle();
+            previousCorrectCount = countCorrectTiles(); 
+            renderPuzzle();
+            startTimers();
+        }
+
+        // --- 遊戲邏輯與計時器 (修正重點) ---
+
+        function startTimers() {
+            const timerInterval = setInterval(() => {
+                // 如果遊戲暫停 (劇情中或設定中)，直接跳過，不執行任何計時或扣血
+                if (!isGameActive) {
+                    return; 
+                }
+
+                timeElapsed++;
+                document.getElementById('timer').innerText = timeElapsed;
+                
+                // 玩家每 3 秒扣 5 滴血
+                if (timeElapsed % 3 === 0) {
+                    damagePlayer(5);
+                }
+            }, 1000);
+        }
+
+        // --- 暫停功能顯示 (視覺優化) ---
+        function updatePauseStatus(paused) {
+            const timerDisplay = document.getElementById('timer-display');
+            if (paused) {
+                timerDisplay.style.color = "var(--danger-color)";
+                timerDisplay.innerHTML = "PAUSED";
+            } else {
+                timerDisplay.style.color = "var(--text-color)";
+                timerDisplay.innerHTML = `<span id="timer">${timeElapsed}</span>s`;
+            }
+        }
+
+        function damagePlayer(amount) {
+            playerHp -= amount;
+            if (playerHp < 0) playerHp = 0;
+            updateBars();
+            if (playerHp <= 0) gameOver();
+        }
+
+        function damageBoss(amount) {
+            if (!isGameActive) return;
+            bossHp -= amount;
+            if (bossHp < 0) bossHp = 0;
+            updateBars();
+
+            // 受傷動畫
+            const bossChar = document.getElementById('boss-char');
+            bossChar.classList.remove('boss-hit', 'boss-heal');
+            void bossChar.offsetWidth;
+            bossChar.classList.add('boss-hit');
+            
+            document.querySelector('.boss-face').innerText = '!';
+            setTimeout(() => document.querySelector('.boss-face').innerText = '$', 500);
+
+            if (bossHp <= 0) gameWin();
+        }
+
+        function healBoss(amount) {
+            if (!isGameActive) return;
+            bossHp += amount;
+            if (bossHp > 100) bossHp = 100;
+            updateBars();
+
+            // 回血動畫
+            const bossChar = document.getElementById('boss-char');
+            bossChar.classList.remove('boss-hit', 'boss-heal');
+            void bossChar.offsetWidth; 
+            bossChar.classList.add('boss-heal'); 
+            
+            document.querySelector('.boss-face').innerText = '+'; 
+            setTimeout(() => document.querySelector('.boss-face').innerText = '$', 800);
+        }
+
+        function updateBars() {
+            document.getElementById('hp-bar-fill').style.width = playerHp + '%';
+            document.getElementById('boss-bar-fill').style.width = bossHp + '%';
+        }
+
+        function showBossDialogue(text) {
+            const diag = document.getElementById('boss-dialogue');
+            diag.innerText = text;
+            diag.classList.add('active');
+            setTimeout(() => diag.classList.remove('active'), 3000);
+        }
+
+        function gameOver() {
+            isGameActive = false;
+            document.getElementById('game-over-ui').style.display = 'flex';
+        }
+
+        // --- 請替換 level1.html 中的 gameWin 函數 ---
+        function gameWin() {
+            isGameActive = false;
+    
+            // 1. Boss 崩潰動畫
+            showBossDialogue("系統錯誤... 致命錯誤... 核心代碼遺失...");
+            const bossChar = document.getElementById('boss-char');
+            bossChar.style.transition = "2s ease-in";
+            bossChar.style.transform = "rotate(720deg) scale(0)";
+            bossChar.style.filter = "invert(1) blur(10px)";
+
+            // 2. 場景崩塌特效 (全螢幕變紅雜訊)
+            setTimeout(() => {
+                const body = document.body;
+                body.style.transition = "background 0.2s";
+                body.style.background = "#000"; // 瞬間變黑
+        
+                // 創造一個遮罩層模擬崩塌
+                const collapseOverlay = document.createElement('div');
+                collapseOverlay.style.position = 'fixed';
+                collapseOverlay.style.top = '0';
+                collapseOverlay.style.left = '0';
+                collapseOverlay.style.width = '100%';
+                collapseOverlay.style.height = '100%';
+                collapseOverlay.style.background = 'repeating-linear-gradient(45deg, #ff0000 0, #ff0000 10px, #000 10px, #000 20px)';
+                collapseOverlay.style.opacity = '0';
+                collapseOverlay.style.transition = 'opacity 2s';
+                collapseOverlay.style.zIndex = '9999';
+                collapseOverlay.style.display = 'flex';
+                collapseOverlay.style.alignItems = 'center';
+                collapseOverlay.style.justifyContent = 'center';
+                collapseOverlay.style.color = 'white';
+                collapseOverlay.style.fontSize = '24px';
+                collapseOverlay.style.fontFamily = 'monospace';
+                collapseOverlay.innerHTML = "<div>WARNING: MAP DATA CORRUPTED</div><div>正在墜落至廢棄區...</div>";
+        
+                document.body.appendChild(collapseOverlay);
+
+                // 顯示崩塌層
+                setTimeout(() => {
+                    collapseOverlay.style.opacity = '1';
+                }, 100);
+
+                // 3. 跳轉至第二關
+                setTimeout(() => {
+                    window.location.href = "level2.html";
+                }, 3000);
+            }, 2000);
+        }
+
+        // --- 拼圖核心 ---
+
+        function shufflePuzzle() {
+            for (let i = 0; i < 300; i++) {
+                const emptyIdx = puzzleState.indexOf(0);
+                const neighbors = getNeighbors(emptyIdx);
+                const rand = neighbors[Math.floor(Math.random() * neighbors.length)];
+                swap(emptyIdx, rand, false);
+            }
+        }
+
+        function getNeighbors(index) {
+            const neighbors = [];
+            const row = Math.floor(index / 3);
+            const col = index % 3;
+            if (row > 0) neighbors.push(index - 3);
+            if (row < 2) neighbors.push(index + 3);
+            if (col > 0) neighbors.push(index - 1);
+            if (col < 2) neighbors.push(index + 1);
+            return neighbors;
+        }
+
+        function moveTile(index) {
+            // 如果遊戲暫停，禁止移動拼圖
+            if (!isGameActive) return;
+
+            const emptyIdx = puzzleState.indexOf(0);
+            const neighbors = getNeighbors(emptyIdx);
+
+            if (neighbors.includes(index)) {
+                swap(index, emptyIdx, true);
+                renderPuzzle();
+                if (puzzleState.every((val, i) => val === winState[i])) {
+                    damageBoss(bossHp); 
+                }
+            }
+        }
+
+        function swap(i, j, checkDamage) {
+            [puzzleState[i], puzzleState[j]] = [puzzleState[j], puzzleState[i]];
+            
+            if (checkDamage) {
+                const currentCorrect = countCorrectTiles();
+                
+                if (currentCorrect > previousCorrectCount) {
+                    damageBoss(12);
+                    showBossDialogue("警告：數據異常流失！");
+                } else if (currentCorrect < previousCorrectCount) {
+                    healBoss(15); 
+                    showBossDialogue("感謝您的失誤！(修復進度 +15%)");
+                } else {
+                    if (Math.random() > 0.8) {
+                        showBossDialogue(taunts[Math.floor(Math.random() * taunts.length)]);
+                    }
+                }
+                previousCorrectCount = currentCorrect;
+            }
+        }
+
+        function countCorrectTiles() {
+            let count = 0;
+            puzzleState.forEach((num, index) => {
+                if (num !== 0 && num === index + 1) count++;
+            });
+            return count;
+        }
+
+        function renderPuzzle() {
+            const board = document.getElementById('puzzle-board');
+            board.innerHTML = '';
+            puzzleState.forEach((num, index) => {
+                const tile = document.createElement('div');
+                tile.className = 'tile';
+                if (num === 0) {
+                    tile.classList.add('empty');
+                } else {
+                    tile.innerText = num;
+                    tile.onclick = () => moveTile(index);
+                    if (num === index + 1) tile.classList.add('correct');
+                    else tile.classList.add('wrong');
+                }
+                board.appendChild(tile);
+            });
+        }
+
+        // --- 劇情與設定 (修正暫停邏輯) ---
+        function triggerStory() {
+            if (isStoryTriggered) return;
+            isStoryTriggered = true;
+            
+            // 1. 暫停遊戲
+            isGameActive = false; 
+            updatePauseStatus(true); // 視覺顯示 PAUSED
+
+            const storyUI = document.getElementById('story-ui');
+            const storyText = document.getElementById('story-content');
+            
+            // 這裡使用了 HTML 標籤來讓文字更有層次
+            const fullText = "系統日誌：偵測到異常權限訪問...<br><br><span style='color:gray'>帕奇 (Patch)：</span><br>「嘿！別管那個穿西裝的方塊頭。<br>我在後台找到了一個漏洞。<br>只要沒報錯 (Error)，我就還能跑！」<br><br><span style='color:yellow'>[ 系統：已獲得自動破解權限 ]</span>";
+            
+            storyUI.style.display = 'flex';
+            
+            // 簡單的打字機效果 (這裡改為支援 HTML 標籤的一次性顯示，或者你需要更複雜的 HTML 打字機)
+            // 為了讓 HTML 標籤 (顏色、換行) 正常運作，建議直接顯示，或者用特殊的打字機邏輯
+            // 這裡為了視覺效果，我們改為「快速打字」但忽略 HTML 標籤的拆解，
+            // 既然有圖了，我們直接用淡入效果顯示文字會比較流暢：
+            
+            storyText.innerHTML = ""; // 清空
+            storyText.style.opacity = 0;
+            storyText.innerHTML = fullText;
+            
+            // 文字淡入動畫
+            let op = 0;
+            const timer = setInterval(function () {
+                if (op >= 1){
+                    clearInterval(timer);
+                }
+                storyText.style.opacity = op;
+                storyText.style.filter = `blur(${(1-op)*5}px)`; // 文字模糊變清晰
+                op += 0.05;
+            }, 30);
+        }
+
+        function closeStory() {
+            document.getElementById('story-ui').style.display = 'none';
+            
+            // 2. 恢復遊戲
+            isGameActive = true; 
+            updatePauseStatus(false); // 恢復時間顯示
+
+            document.getElementById('auto-solve-btn').style.display = 'block';
+            showBossDialogue("偵測到非法外掛！");
+        }
+
+        function toggleSettings() {
+            const ui = document.getElementById('settings-ui');
+            const isOpening = (ui.style.display !== 'flex');
+            
+            ui.style.display = isOpening ? 'flex' : 'none';
+            
+            // 設定選單打開時也暫停遊戲
+            // 注意：如果劇情正在跑(isStoryTriggered && !gameActive)，這裡不要誤把遊戲打開
+            if (!isStoryTriggered) {
+                isGameActive = !isOpening;
+                updatePauseStatus(isOpening);
+            }
+        }
+
+        function autoWin() {
+            if (!isGameActive) return;
+            puzzleState = [...winState];
+            renderPuzzle();
+            setTimeout(() => damageBoss(100), 500);
+        }
+
+        function setTheme(theme) {
+            document.body.setAttribute('data-theme', theme);
+            localStorage.setItem('glitchGameTheme', theme);
+        }
+    </script>
+</body>
+</html>

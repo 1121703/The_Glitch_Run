@@ -1,0 +1,382 @@
+/* --- 1. 全域變數與風格定義 (CSS Variables) --- */
+:root {
+    /* 核心配色：參考附檔影片的 紫/粉/青 風格 */
+    --bg-color: #050008; /* 極深的紫黑色 */
+    --main-color: #0f0;  /* 原始駭客綠 (保留給選單) */
+    
+    /* 新增：數據流特效色 (參考影片) */
+    --glitch-purple: #b026ff;
+    --glitch-pink: #ff0055;
+    --glitch-cyan: #00f0ff;
+    
+    --text-color: #0f0;
+    --btn-bg: #111;
+    --btn-border: #0f0;
+    --font-main: 'Courier New', monospace;
+    --glitch-shadow-1: var(--glitch-pink);
+    --glitch-shadow-2: var(--glitch-cyan);
+}
+
+/* 明亮風 (Light Style) */
+[data-theme="light"] {
+    --bg-color: #f0f0f0;
+    --main-color: #333;
+    --text-color: #333;
+    --btn-bg: #fff;
+    --btn-border: #333;
+    --glitch-shadow-1: #ff00ff;
+    --glitch-shadow-2: #00ffff;
+}
+
+/* 黑暗風 (Dark Style) */
+[data-theme="dark"] {
+    --bg-color: #1a1a1a;
+    --main-color: #d32f2f;
+    --text-color: #e0e0e0;
+    --btn-bg: #2d2d2d;
+    --btn-border: #d32f2f;
+    --glitch-shadow-1: #ffff00;
+    --glitch-shadow-2: #00ff00;
+}
+
+/* --- 2. 基礎布局 --- */
+body {
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: var(--font-main);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.5s, color 0.5s;
+}
+
+/* 背景裝飾 (掃描線) */
+body::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: 
+        linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+    background-size: 100% 2px, 3px 100%;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* --- 3. UI 元件 (按鈕、標題等) --- */
+
+.top-right-panel {
+    position: absolute;
+    top: 20px; right: 20px; z-index: 10;
+}
+
+.icon-btn {
+    background: var(--btn-bg);
+    border: 2px solid var(--btn-border);
+    color: var(--text-color);
+    padding: 10px 15px;
+    cursor: pointer;
+    font-family: var(--font-main);
+    font-weight: bold;
+    font-size: 16px;
+    text-transform: uppercase;
+    transition: 0.3s;
+}
+.icon-btn:hover {
+    background: var(--main-color);
+    color: var(--bg-color);
+    box-shadow: 0 0 10px var(--main-color);
+}
+
+.title-container {
+    z-index: 5;
+    text-align: center;
+    margin-bottom: 50px;
+}
+
+.glitch-title {
+    font-size: 80px;
+    font-weight: bold;
+    position: relative;
+    color: var(--text-color);
+    letter-spacing: 5px;
+}
+.glitch-title::before, .glitch-title::after {
+    content: attr(data-text);
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: var(--bg-color);
+}
+.glitch-title::before {
+    left: 2px;
+    text-shadow: -1px 0 var(--glitch-shadow-1);
+    clip: rect(24px, 550px, 90px, 0);
+    animation: glitch-anim-2 3s infinite linear alternate-reverse;
+}
+.glitch-title::after {
+    left: -2px;
+    text-shadow: -1px 0 var(--glitch-shadow-2);
+    clip: rect(85px, 550px, 140px, 0);
+    animation: glitch-anim-1 2.5s infinite linear alternate-reverse;
+}
+
+.subtitle {
+    font-size: 24px;
+    margin-top: 10px;
+    opacity: 0.8;
+    border-top: 1px solid var(--text-color);
+    border-bottom: 1px solid var(--text-color);
+    padding: 5px;
+    display: inline-block;
+}
+
+.menu-container {
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.main-btn {
+    background: transparent;
+    border: 2px solid var(--btn-border);
+    color: var(--text-color);
+    padding: 15px 40px;
+    font-size: 24px;
+    font-family: var(--font-main);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: 0.2s;
+}
+.main-btn:hover {
+    background: var(--btn-border);
+    color: var(--bg-color);
+    transform: scale(1.05);
+    box-shadow: 0 0 15px var(--accent-color);
+}
+
+/* --- 4. 彈出視窗 (Modal) --- */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 100;
+    justify-content: center;
+    align-items: center;
+}
+.modal-box {
+    background: var(--bg-color);
+    border: 2px solid var(--btn-border);
+    padding: 30px;
+    width: 400px;
+    max-width: 90%;
+    box-shadow: 0 0 20px var(--btn-border);
+    position: relative;
+    text-align: center;
+}
+.modal-title {
+    font-size: 28px;
+    border-bottom: 2px dashed var(--text-color);
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+}
+.close-btn {
+    position: absolute;
+    top: 10px; right: 15px;
+    background: none; border: none;
+    color: var(--text-color); font-size: 24px; cursor: pointer;
+}
+.style-option {
+    display: block; width: 100%; padding: 10px; margin: 10px 0;
+    border: 1px solid var(--text-color);
+    background: transparent; color: var(--text-color);
+    cursor: pointer; font-family: var(--font-main);
+}
+.style-option:hover {
+    background: var(--text-color); color: var(--bg-color);
+}
+.notice-list { text-align: left; list-style: none; padding: 0; }
+.notice-list li { margin-bottom: 10px; padding-left: 15px; position: relative; }
+.notice-list li::before { content: ">"; position: absolute; left: 0; color: var(--accent-color); }
+
+/* --- 5. Glitch Animation Keyframes --- */
+@keyframes glitch-anim-1 {
+    0% { clip: rect(20px, 9999px, 80px, 0); }
+    100% { clip: rect(70px, 9999px, 40px, 0); }
+}
+@keyframes glitch-anim-2 {
+    0% { clip: rect(90px, 9999px, 20px, 0); }
+    100% { clip: rect(20px, 9999px, 60px, 0); }
+}
+
+/* --- 6. 劇情過場專用樣式 (Intro Cutscene) --- */
+#intro-overlay {
+    display: none;
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: #000;
+    z-index: 200;
+    flex-direction: column; align-items: center; justify-content: center;
+    padding: 20px;
+}
+.story-container {
+    width: 800px; max-width: 90%;
+    border: 2px solid var(--main-color);
+    box-shadow: 0 0 20px var(--main-color);
+    background: rgba(10, 10, 10, 0.95);
+    padding: 20px;
+    display: flex; flex-direction: column; gap: 20px; position: relative;
+}
+.story-container::before {
+    content: "SYSTEM_OVERRIDE // SECURE_CHANNEL";
+    position: absolute; top: -12px; left: 20px;
+    background: #000; color: var(--main-color);
+    padding: 0 10px; font-size: 14px; font-weight: bold;
+}
+.story-image-box {
+    width: 100%; height: 300px;
+    background: #000;
+    border: 1px dashed var(--text-color);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; position: relative;
+}
+/* 圖片濾鏡：調整為附圖的紫/粉風格 */
+.story-img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    opacity: 0.9;
+    /* 這裡模仿你上傳影片的紫色雜訊風格 */
+    filter: contrast(1.1) brightness(1.2) sepia(0.2) hue-rotate(240deg) saturate(1.5);
+    transition: 0.5s;
+}
+.story-image-box::after {
+    content: "";
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+    background-size: 100% 4px; pointer-events: none;
+}
+.story-text-box {
+    min-height: 120px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid var(--main-color);
+    padding: 20px; margin-top: 15px; border-radius: 4px;
+    font-family: var(--font-main); font-size: 20px; font-weight: bold;
+    line-height: 1.6; color: #ffffff;
+    text-shadow: 0 0 8px var(--main-color);
+    box-shadow: inset 0 0 20px rgba(0, 255, 0, 0.1);
+}
+.cursor {
+    display: inline-block; width: 12px; height: 24px;
+    background: #fff; box-shadow: 0 0 10px var(--main-color);
+    animation: blink 0.8s infinite; vertical-align: sub; margin-left: 5px;
+}
+@keyframes blink { 50% { opacity: 0; } }
+.story-controls { display: flex; justify-content: flex-end; gap: 15px; }
+.story-btn {
+    background: var(--btn-bg); border: 1px solid var(--btn-border);
+    color: var(--text-color); padding: 10px 25px; cursor: pointer;
+    font-family: var(--font-main); font-weight: bold; text-transform: uppercase;
+    transition: 0.3s;
+}
+.story-btn:hover { background: var(--main-color); color: var(--bg-color); box-shadow: 0 0 15px var(--main-color); }
+.patch-avatar {
+    width: 60px; height: 60px; border: 2px solid var(--main-color);
+    background: #000; position: absolute; top: -30px; right: 20px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 30px; box-shadow: 0 0 10px var(--main-color);
+}
+
+/* --- 7. 進入動畫專用樣式 (Loading Intro - 數據流) --- */
+#loading-intro {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    /* 背景色改為深紫黑 */
+    background: #08000f; 
+    z-index: 999;
+    display: flex; justify-content: center; align-items: center;
+    overflow: hidden;
+}
+
+/* 這是背景流動的數據線條，模仿影片中的紫/綠線條 */
+#loading-intro::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: 
+        repeating-linear-gradient(
+            90deg,
+            transparent 0px,
+            transparent 50px,
+            rgba(176, 38, 255, 0.1) 50px, /* 紫色線 */
+            rgba(176, 38, 255, 0.1) 51px,
+            transparent 51px,
+            transparent 100px,
+            rgba(0, 255, 0, 0.1) 100px,   /* 綠色線 */
+            rgba(0, 255, 0, 0.1) 101px
+        );
+    background-size: 200% 200%;
+    animation: data-flow 20s linear infinite;
+    pointer-events: none;
+}
+
+/* 數據流動動畫 */
+@keyframes data-flow {
+    0% { background-position: 0% 0%; }
+    100% { background-position: 100% 100%; }
+}
+
+/* 進入文字： SYSTEM_INIT */
+.intro-glitch-text {
+    font-size: 60px;
+    font-family: 'Courier New', monospace;
+    font-weight: 900;
+    color: var(--glitch-cyan);
+    position: relative;
+    z-index: 10;
+    text-shadow: 2px 2px var(--glitch-purple), -2px -2px var(--glitch-pink);
+    animation: text-flicker 0.1s infinite;
+}
+
+/* 當動畫結束時，套用這個 Class 讓畫面像數據崩解一樣消失 */
+.data-dissolve-out {
+    animation: screen-dissolve 1.2s forwards ease-in-out;
+}
+
+/* 螢幕崩解動畫 (模仿影片中方塊溶解/掃描線消失) */
+@keyframes screen-dissolve {
+    0% {
+        clip-path: inset(0 0 0 0);
+        filter: hue-rotate(0deg) contrast(1);
+    }
+    20% {
+        clip-path: inset(10% 0 5% 0);
+        filter: hue-rotate(90deg) contrast(1.5) blur(2px);
+        background-color: var(--glitch-purple);
+    }
+    40% {
+        clip-path: inset(30% 0 20% 0);
+        filter: hue-rotate(180deg) invert(1);
+    }
+    60% {
+        clip-path: inset(60% 0 50% 0);
+        transform: scale(1.1);
+    }
+    100% {
+        clip-path: inset(100% 0 100% 0); /* 完全消失 */
+        opacity: 0;
+        transform: scale(1.5);
+    }
+}
+
+@keyframes text-flicker {
+    0% { opacity: 1; transform: translate(1px, 0); }
+    50% { opacity: 0.8; transform: translate(-1px, 0); }
+    100% { opacity: 1; transform: translate(0, 1px); }
+}
